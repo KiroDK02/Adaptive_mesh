@@ -316,6 +316,8 @@ namespace Meshes
          FemAlgorithms.EnumerateMeshDofs(this);
       }
 
+      public IDictionary<(int i, int j), int> EdgeSplits(ISolution solution)
+         => throw new NotSupportedException();
 
       public IEnumerable<IFiniteElement> Elements { get => _elements; }
 

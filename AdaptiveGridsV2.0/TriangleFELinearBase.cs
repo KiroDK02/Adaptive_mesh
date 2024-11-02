@@ -107,7 +107,7 @@ namespace AdaptiveGrids
          public int DOFOnElement() => 0;
 
          public (int i, int j) Edge(int edge)
-            => edge switch { 0 => (0, 1), 1 => (1, 2), 2 => (0, 2), _ => throw new Exception("Invalid number of edge.") };
+            => edge switch { 0 => (0, 1), 1 => (1, 2), 2 => (2, 0), _ => throw new Exception("Invalid number of edge.") };
 
          public Vector2D GetGradientAtPoint(Vector2D[] VertexCoords, ReadOnlySpan<double> coeffs, Vector2D point)
          {

@@ -52,7 +52,8 @@ namespace FEM
    {
       IEnumerable<IFiniteElement> Elements { get; }
 
-      Vector2D[] Vertex { get; } 
+      Vector2D[] Vertex { get; }
+      IDictionary<(int i, int j), int> EdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials);
       int NumberOfDofs { get; set; }
    }
 
@@ -89,6 +90,7 @@ namespace FEM
       IFiniteElementMesh Mesh { get; }
       ITimeMesh TimeMesh { get; }
       ReadOnlySpan<double> SolutionVector { get; }
+      IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials);
       void AddSolutionVector(double t, double[] solution);
       double Value(Vector2D point);
       Vector2D Gradient(Vector2D point);

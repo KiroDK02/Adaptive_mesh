@@ -17,10 +17,10 @@ Vector2D[] vertex = { new(0, 0), new(6, 0), new(3, 3), new(0, 6), new(6, 6) };
 //Vector2D[] vertex = { new Vector2D(0, 6), new Vector2D(3, 6), new Vector2D(6, 6), 
 //                      new Vector2D(0, 3), new Vector2D(3, 3), new Vector2D(6, 3), 
 //                      new Vector2D(0, 0), new Vector2D(3, 0), new Vector2D(6, 0)};
-IFiniteElement[] elements = { new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 1, 2 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 1, 2, 4 }),
-                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 2, 3, 4 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 2, 3 }),
+IFiniteElement[] elements = { new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 1, 2 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 1, 4, 2 }),
+                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 2, 4, 3 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 2, 3 }),
                               new TriangleFEStraightQuadraticBaseWithNI("1", new int[] { 0, 1 }), new TriangleFEStraightQuadraticBaseWithNI("2", new int[] { 1, 4 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("3", new int[] { 3, 4 }), new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 0, 3 })};
+                              new TriangleFEStraightQuadraticBaseWithNI("3", new int[] { 4, 3 }), new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 3, 0 })};
 
 /*IFiniteElement[] elements = { new TriangleFELinearBase("volume", new int[] { 0, 1, 3 }), new TriangleFELinearBase("volume", new int[] { 1, 2, 3 }),
                               new TriangleFEStraghtLinearBase("1", new int[] { 0, 1 }), new TriangleFEStraghtLinearBase("2", new int[] { 1, 3 }),

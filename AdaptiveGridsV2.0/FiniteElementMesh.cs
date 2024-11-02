@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,5 +23,45 @@ namespace AdaptiveGrids
       public Vector2D[] Vertex { get; }
 
       public int NumberOfDofs { get; set; }
+
+      public IDictionary<(int i, int j), int> EdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials)
+      {
+         var edgeSplits = new Dictionary<(int i, int j), int>();
+         var differenceFlow = solution.CalcDifferenceOfFlow(materials);
+         var scaleDifference = new double[5];
+         var scaleSplits = new int[4];
+
+         var maxDifference = differenceFlow.Values.Max();
+         var minDifference = differenceFlow.Values.Min();
+
+         scaleSplits[0] = 1;
+         scaleDifference[0] = minDifference;
+         scaleDifference[4] = maxDifference;
+
+         var step = (maxDifference - minDifference) / 4;
+
+         for (int i = 1; i < 4; ++i)
+         {
+            scaleDifference[i] = minDifference + step * i;
+            scaleSplits[i] = i + 1;
+         }
+
+         foreach (var edge in differenceFlow)
+         {
+            var difference = edge.Value;
+            var split = 0;
+
+            for (int i = 0; i < 4; ++i)
+               if (scaleDifference[i] <= difference && difference <= scaleDifference[i + 1])
+               {
+                  split = scaleSplits[i];
+                  break;
+               }
+
+            edgeSplits[edge.Key] = split;
+         }
+
+         return edgeSplits;
+      }
    }
 }

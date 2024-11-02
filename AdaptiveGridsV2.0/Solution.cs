@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -59,6 +60,43 @@ namespace AdaptiveGrids
 
       double[] solutionVector { get; }
       public ReadOnlySpan<double> SolutionVector => solutionVector;
+      
+      // как убирать ребра на границе сетки?
+      public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials)
+      {
+         var differenceFlow = new Dictionary<(int i, int j), double>();
+
+         foreach (var element in Mesh.Elements)
+         {
+            if (element.VertexNumber.Length != 2)
+            {
+               var lambda = materials[element.Material].Lambda;
+
+               for (int i = 0; i < element.NumberOfEdges; ++i)
+               {
+                  var edge = element.Edge(i);
+                  edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+
+                  var point1 = Mesh.Vertex[edge.i];
+                  var point2 = Mesh.Vertex[edge.j];
+                  var middleOfEdge = new Vector2D((point1.X + point2.X) / 2d, (point1.Y + point2.Y) / 2d);
+
+                  var vector = new Vector2D(point2.X - point1.X, point2.Y - point1.Y);
+                  var vectorOuterNormal = new Vector2D(vector.Y, -vector.X);
+
+                  var valueGrad = Gradient(middleOfEdge);
+
+                  var flowAcrossEdge = lambda(middleOfEdge) * vectorOuterNormal * valueGrad;
+
+                  if (differenceFlow.TryGetValue(edge, out var curFlow)) 
+                     differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
+                  else differenceFlow[edge] = flowAcrossEdge;
+               }
+            }
+         }
+
+         return differenceFlow;
+      }
 
       public double Value(Vector2D point)
       {
@@ -73,7 +111,7 @@ namespace AdaptiveGrids
             }
          }
 
-         return 0; // что возвращать, если не попала ни в один элемент?
+         return -100000; // значит точка вне области
       }
 
       public Vector2D Gradient(Vector2D point)
@@ -89,7 +127,7 @@ namespace AdaptiveGrids
             }
          }
 
-         return new Vector2D(0, 0);
+         return new Vector2D(-100000, -100000); // значит точка вне области
       }
 
       public void AddSolutionVector(double t, double[] solution)
