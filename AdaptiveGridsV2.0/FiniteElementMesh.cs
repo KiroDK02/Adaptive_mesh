@@ -34,17 +34,15 @@ namespace AdaptiveGrids
          var maxDifference = differenceFlow.Values.Max();
          var minDifference = differenceFlow.Values.Min();
 
-         scaleSplits[0] = 1;
-         scaleDifference[0] = minDifference;
-         scaleDifference[4] = maxDifference;
-
          var step = (maxDifference - minDifference) / 4;
 
-         for (int i = 1; i < 4; ++i)
+         for (int i = 0; i < 4; ++i)
          {
             scaleDifference[i] = minDifference + step * i;
             scaleSplits[i] = i + 1;
          }
+
+         scaleDifference[4] = maxDifference;
 
          foreach (var edge in differenceFlow)
          {
