@@ -27,7 +27,7 @@ namespace AdaptiveGrids
       public IDictionary<(int i, int j), int> EdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials)
       {
          var edgeSplits = new Dictionary<(int i, int j), int>();
-         var differenceFlow = solution.CalcDifferenceOfFlow(materials);
+         var differenceFlow = solution.CalcDifferenceOfFlow(materials, CalcNumberOccurrencesOfEdgesInElems());
          var scaleDifference = new double[5];
          var scaleSplits = new int[4];
 
@@ -39,7 +39,7 @@ namespace AdaptiveGrids
          for (int i = 0; i < 4; ++i)
          {
             scaleDifference[i] = minDifference + step * i;
-            scaleSplits[i] = i + 1;
+            scaleSplits[i] = i;
          }
 
          scaleDifference[4] = maxDifference;
@@ -56,10 +56,33 @@ namespace AdaptiveGrids
                   break;
                }
 
-            edgeSplits[edge.Key] = split;
+            edgeSplits.TryAdd(edge.Key, split);
          }
 
          return edgeSplits;
+      }
+
+      Dictionary<(int i, int j), int> CalcNumberOccurrencesOfEdgesInElems()
+      {
+         var numberOccurrencesOfEdges = new Dictionary<(int i, int j), int>();
+
+         foreach (var element in Elements)
+         {
+            if (element.VertexNumber.Length != 2)
+            {
+               for (int i = 0; i < element.NumberOfEdges; ++i)
+               {
+                  var edge = element.Edge(i);
+                  edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+
+                  if (numberOccurrencesOfEdges.TryGetValue(edge, out var count))
+                     numberOccurrencesOfEdges[edge] = ++count;
+                  else numberOccurrencesOfEdges.TryAdd(edge, 1);
+               }
+            }
+         }
+
+         return numberOccurrencesOfEdges;
       }
    }
 }

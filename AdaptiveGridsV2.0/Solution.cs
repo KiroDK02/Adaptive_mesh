@@ -60,9 +60,8 @@ namespace AdaptiveGrids
 
       double[] solutionVector { get; }
       public ReadOnlySpan<double> SolutionVector => solutionVector;
-      
-      // как убирать ребра на границе сетки?
-      public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials)
+
+      public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
       {
          var differenceFlow = new Dictionary<(int i, int j), double>();
 
@@ -83,14 +82,20 @@ namespace AdaptiveGrids
 
                   var vector = new Vector2D(point2.X - point1.X, point2.Y - point1.Y);
                   var vectorOuterNormal = new Vector2D(vector.Y, -vector.X);
+                  vectorOuterNormal.Normalize();
 
                   var valueGrad = Gradient(middleOfEdge);
 
                   var flowAcrossEdge = lambda(middleOfEdge) * vectorOuterNormal * valueGrad;
 
-                  if (differenceFlow.TryGetValue(edge, out var curFlow))
-                     differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
-                  else differenceFlow.TryAdd(edge, flowAcrossEdge);
+                  if (numberOccurrencesOfEdges[edge] == 1)
+                     differenceFlow.TryAdd(edge, 0);
+                  else
+                  {
+                     if (differenceFlow.TryGetValue(edge, out var curFlow))
+                        differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
+                     else differenceFlow.TryAdd(edge, flowAcrossEdge);
+                  }
                }
             }
          }
