@@ -88,9 +88,9 @@ namespace AdaptiveGrids
 
                   var flowAcrossEdge = lambda(middleOfEdge) * vectorOuterNormal * valueGrad;
 
-                  if (differenceFlow.TryGetValue(edge, out var curFlow)) 
+                  if (differenceFlow.TryGetValue(edge, out var curFlow))
                      differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
-                  else differenceFlow[edge] = flowAcrossEdge;
+                  else differenceFlow.TryAdd(edge, flowAcrossEdge);
                }
             }
          }
