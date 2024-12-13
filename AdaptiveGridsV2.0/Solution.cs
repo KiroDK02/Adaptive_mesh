@@ -88,6 +88,8 @@ namespace AdaptiveGrids
 
                   var flowAcrossEdge = lambda(middleOfEdge) * vectorOuterNormal * valueGrad;
 
+                  if (edge.i > edge.j) edge = (edge.j, edge.i);
+
                   if (numberOccurrencesOfEdges[edge] == 1)
                      differenceFlow.TryAdd(edge, 0);
                   else

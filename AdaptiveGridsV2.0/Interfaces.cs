@@ -51,10 +51,14 @@ namespace FEM
    public interface IFiniteElementMesh
    {
       IEnumerable<IFiniteElement> Elements { get; }
-
       Vector2D[] Vertex { get; }
-      IDictionary<(int i, int j), int> EdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials);
       int NumberOfDofs { get; set; }
+   }
+
+   public interface IAdaptiveFiniteElementMesh : IFiniteElementMesh
+   {
+      public bool Adapt { get; set; }
+      public void DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
    }
 
    public interface ITimeMesh
@@ -69,11 +73,13 @@ namespace FEM
    public interface IMaterial
    {
       bool IsVolume { get; }
+
       bool Is1 { get; }
 
       bool Is2 { get; }
 
       Func<Vector2D, double> Lambda { get; }
+
       Func<Vector2D, double> Sigma { get; }
 
       Func<Vector2D, double, double> Theta { get; }
@@ -86,7 +92,7 @@ namespace FEM
 
    public interface ISolution
    {
-      double Time { get; set; } // Меняется вектор решения при установке определенного времени
+      double Time { get; set; }
       IFiniteElementMesh Mesh { get; }
       ITimeMesh TimeMesh { get; }
       ReadOnlySpan<double> SolutionVector { get; }
