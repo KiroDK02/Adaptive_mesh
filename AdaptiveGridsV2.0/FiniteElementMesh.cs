@@ -49,6 +49,7 @@ namespace AdaptiveGrids
                for (int i = 0; i < element.NumberOfEdges; i++)
                {
                   var edge = element.Edge(i);
+                  edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
                   if (edge.i > edge.j) edge = (edge.j, edge.i);
 
                   edges[i] = (edge, splits[edge]);
@@ -85,6 +86,7 @@ namespace AdaptiveGrids
             for (int edgei = 0; edgei < element.NumberOfEdges; edgei++)
             {
                var curEdge = element.Edge(edgei);
+               curEdge = (element.VertexNumber[curEdge.i], element.VertexNumber[curEdge.j]);
                if (curEdge.i > curEdge.j) curEdge = (curEdge.j, curEdge.i);
 
                var splitsFromCurEdge = edgeSplits[curEdge];
@@ -95,6 +97,7 @@ namespace AdaptiveGrids
                      continue;
 
                   var edge = element.Edge(edgej);
+                  edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
                   if (edge.i > edge.j) edge = (edge.j, edge.i);
 
                   if (!distributedSplits.TryGetValue(edge, out int split) || split < splitsFromCurEdge)
