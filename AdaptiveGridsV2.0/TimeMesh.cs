@@ -28,7 +28,6 @@ namespace AdaptiveGrids
 
       public TimeMesh(double[] baseTimeMesh, RefineParams refParams)
       {
-
          int n = baseTimeMesh.Length;
 
          if (n - 1 != refParams.splitCount.Count)
