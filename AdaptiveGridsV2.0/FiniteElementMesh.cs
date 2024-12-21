@@ -18,9 +18,9 @@ namespace AdaptiveGrids
       {
          Elements = elements;
          Vertex = vertex;
-         Adapt = adapt;
+         Adapted = adapt;
       }
-      public bool Adapt { get; set; }
+      public bool Adapted { get; set; }
 
       public IEnumerable<IFiniteElement> Elements { get; }
 
@@ -29,7 +29,7 @@ namespace AdaptiveGrids
       public int NumberOfDofs { get; set; }
 
       // Пока только для элементов с одинаковым числом разбиений
-      public IFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials)
+      public IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials)
       {
          var splitsOfEdges = DistributeSplitsToEdges(solution, materials);
          var smoothSplitsOfEdges = SmoothToSplits(splitsOfEdges);
@@ -57,7 +57,7 @@ namespace AdaptiveGrids
             var minSplit = -MaxValue(-split1, -split2, -split3);
 
             var countLayer = minSplit;
-            
+
             var globalVertices = CalcAllVertices(split1,
                                                  split2,
                                                  split3,
@@ -157,7 +157,7 @@ namespace AdaptiveGrids
                   {
                      stop = false;
 
-                     splits[edges[i].edge] = maxSplit - 1;
+                     splits[edges[i].edge] = maxSplit; // Временно не maxSplit - 1
                   }
                }
             }
@@ -214,6 +214,11 @@ namespace AdaptiveGrids
          var minDifference = differenceFlow.Values.Min();
 
          var step = (maxDifference - minDifference) / 4;
+
+//         scaleSplits[0] = 0;
+//         scaleSplits[1] = 0;
+//         scaleSplits[2] = 1;
+//         scaleSplits[3] = 2;
 
          for (int i = 0; i < 4; ++i)
          {
@@ -300,22 +305,25 @@ namespace AdaptiveGrids
          if (min == sumNum1)
          {
             edgeMain = edge1;
-            edgeFirst = edge3;
-            edgeSecond = edge2;
+            (edgeFirst, edgeSecond) = edge2.i < edge3.i ?
+                                      (edge2, edge3) :
+                                      (edge3, edge2);
          }
 
          if (min == sumNum2)
          {
             edgeMain = edge2;
-            edgeFirst = edge1;
-            edgeSecond = edge3;
+            (edgeFirst, edgeSecond) = edge1.i < edge3.i ?
+                                      (edge1, edge3) :
+                                      (edge3, edge1);
          }
 
          if (min == sumNum3)
          {
             edgeMain = edge3;
-            edgeFirst = edge2;
-            edgeSecond = edge1;
+            (edgeFirst, edgeSecond) = edge2.i < edge1.i ?
+                                      (edge2, edge1) :
+                                      (edge1, edge2);
          }
 
          return (edgeMain, edgeFirst, edgeSecond);
@@ -347,17 +355,17 @@ namespace AdaptiveGrids
          var k2 = step2;
          var k3 = step3;
 
-         var numVert = minSplit;
+         var h = (verticesEdge1[minSplit].vert - verticesEdge1[0].vert) / minSplit;
 
-         for (int layer = 1; layer < countLayer; layer++)
+         for (int layer = 1, numVert = minSplit; layer < countLayer; layer++, numVert--)
          {
-            globalVertices[(2 * (minSplit + 1) - (layer - 1)) * layer / 2] = verticesEdge2[k2];
-            var h = (verticesEdge3[k3].vert - verticesEdge2[k2].vert) / minSplit;
+            var countPassedVertices = (2 * (minSplit + 1) - (layer - 1)) * layer / 2;
+            globalVertices[countPassedVertices] = verticesEdge2[k2];
 
             for (int vi = 1; vi < numVert - 1; vi++)
             {
-               var localNum = (2 * (minSplit + 1) - (layer - 1)) * layer / 2 + vi;
-               var newVertex = verticesEdge2[vi].vert + h * vi;
+               var localNum = countPassedVertices + vi;
+               var newVertex = verticesEdge2[k2].vert + h * vi;
                globalVertices[localNum] = (newVertex, countVertex++);
             }
 
