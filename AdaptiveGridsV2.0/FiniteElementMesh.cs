@@ -57,8 +57,7 @@ namespace AdaptiveGrids
             var minSplit = -MaxValue(-split1, -split2, -split3);
 
             var countLayer = minSplit;
-            var countVertices = (minSplit + 2) * (countLayer + 1) / 2;
-
+            
             var globalVertices = CalcAllVertices(split1,
                                                  split2,
                                                  split3,
@@ -167,7 +166,7 @@ namespace AdaptiveGrids
          return splits;
       }
 
-      IDictionary<(int i, int j), int> DistributeSplitsToEdges(ISolution solution, IDictionary<string, IMaterial> materials)
+      Dictionary<(int i, int j), int> DistributeSplitsToEdges(ISolution solution, IDictionary<string, IMaterial> materials)
       {
          var distributedSplits = new Dictionary<(int i, int j), int>();
 
@@ -203,7 +202,7 @@ namespace AdaptiveGrids
          return distributedSplits;
       }
 
-      IDictionary<(int i, int j), int> CalcEdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials)
+      Dictionary<(int i, int j), int> CalcEdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials)
       {
          var edgeSplits = new Dictionary<(int i, int j), int>();
          var differenceFlow = solution.CalcDifferenceOfFlow(materials, CalcNumberOccurrencesOfEdgesInElems());
@@ -242,7 +241,7 @@ namespace AdaptiveGrids
          return edgeSplits;
       }
 
-      IDictionary<(int i, int j), int> CalcNumberOccurrencesOfEdgesInElems()
+      Dictionary<(int i, int j), int> CalcNumberOccurrencesOfEdgesInElems()
       {
          var numberOccurrencesOfEdges = new Dictionary<(int i, int j), int>();
 
@@ -373,7 +372,7 @@ namespace AdaptiveGrids
          return globalVertices;
       }
 
-      IDictionary<(int i, int j), (Vector2D vert, int num)[]> CalcVerticesOfEdges(IDictionary<(int i, int j), int> smoothSplitsOfEdges,
+      Dictionary<(int i, int j), (Vector2D vert, int num)[]> CalcVerticesOfEdges(IDictionary<(int i, int j), int> smoothSplitsOfEdges,
                                                                                   ref int countVertex)
       {
          var splitVertexEdges = new Dictionary<(int i, int j), (Vector2D vert, int num)[]>();
