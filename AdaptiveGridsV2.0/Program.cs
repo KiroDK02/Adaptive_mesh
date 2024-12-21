@@ -8,8 +8,21 @@ using System.Reflection.PortableExecutable;
 using Meshes;
 using AdaptiveGrids.FiniteElements2D;
 using AdaptiveGrids.FiniteElements1D;
+using System.Reflection.Emit;
 
 double[] t = { 0, 2, 4, 6, 8, 10 };
+
+int minSplit = 8;
+int layer = 3;
+
+var countPassedVertices = (2 * (minSplit + 1) - (layer - 1)) * layer / 2;
+var countPassedVerticesNextLayer = (2 * (minSplit + 1) - layer) * (layer + 1) / 2;
+var elemi = 1;
+
+(int localV1, int localV2, int localV3) =
+   elemi % 2 == 0
+? (elemi / 2 + countPassedVertices, elemi / 2 + countPassedVertices + 1, elemi / 2 + countPassedVerticesNextLayer)
+: ((elemi + 1) / 2 + countPassedVertices, (elemi + 1) / 2 + countPassedVerticesNextLayer, (elemi + 1) / 2 + countPassedVerticesNextLayer - 1);
 
 TimeMesh timeMesh = new TimeMesh(t);
 /*Vector2D[] vertex = { new(0, 0), new(6, 0), new(3, 6) };*/

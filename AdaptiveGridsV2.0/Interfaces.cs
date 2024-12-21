@@ -58,7 +58,7 @@ namespace FEM
    public interface IAdaptiveFiniteElementMesh : IFiniteElementMesh
    {
       public bool Adapt { get; set; }
-      public void DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
+      public IFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
    }
 
    public interface ITimeMesh
