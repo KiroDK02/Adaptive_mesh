@@ -42,6 +42,8 @@ namespace AdaptiveGrids
 
          foreach (var element in Elements)
          {
+            var listElemsFromCurElem = new List<IFiniteElement>();
+
             if (element.VertexNumber.Length == 2) continue;
 
             (var edge1, var edge2, var edge3) = DefineOrderEdges(element);
@@ -84,14 +86,18 @@ namespace AdaptiveGrids
                   int[] globalNums = { globalVertices[localV1].num, globalVertices[localV2].num, globalVertices[localV3].num };
                   var elem = new TriangleFEQuadraticBaseWithNI(element.Material, globalNums);
 
-                  listElems.Add(elem);
+                  listElemsFromCurElem.Add(elem);
                }
             }
 
-            for (int i = 0; i < globalVertices.Length; i++)
-            {
-               listVertices.Add(globalVertices[i]);
-            }
+            var listVerticesCurElems = new List<(Vector2D vert, int num)>(globalVertices);
+
+            if (split1 / minSplit != 1) DoubleSomeElemsOnEdge(split1, minSplit, verticesEdge1, listElemsFromCurElem, listVerticesCurElems);
+            if (split2 / minSplit != 1) DoubleSomeElemsOnEdge(split2, minSplit, verticesEdge2, listElemsFromCurElem, listVerticesCurElems);
+            if (split3 / minSplit != 1) DoubleSomeElemsOnEdge(split3, minSplit, verticesEdge3, listElemsFromCurElem, listVerticesCurElems);
+
+            listElems.AddRange(listElemsFromCurElem);
+            listVertices.AddRange(listVerticesCurElems);
          }
 
          foreach (var element in Elements)
@@ -157,7 +163,7 @@ namespace AdaptiveGrids
                   {
                      stop = false;
 
-                     splits[edges[i].edge] = maxSplit; // Временно не maxSplit - 1
+                     splits[edges[i].edge] = maxSplit - 1; // Временно не maxSplit - 1
                   }
                }
             }
@@ -215,10 +221,10 @@ namespace AdaptiveGrids
 
          var step = (maxDifference - minDifference) / 4;
 
-//         scaleSplits[0] = 0;
-//         scaleSplits[1] = 0;
-//         scaleSplits[2] = 1;
-//         scaleSplits[3] = 2;
+/*                  scaleSplits[0] = 0;
+                  scaleSplits[1] = 0;
+                  scaleSplits[2] = 1;
+                  scaleSplits[3] = 2;*/
 
          for (int i = 0; i < 4; ++i)
          {
@@ -339,7 +345,7 @@ namespace AdaptiveGrids
       {
          var minSplit = -MaxValue(-split1, -split2, -split3);
          var countLayer = minSplit;
-
+         
          var countVertices = (minSplit + 2) * (countLayer + 1) / 2;
          var globalVertices = new (Vector2D vert, int num)[countVertices];
 
@@ -421,6 +427,43 @@ namespace AdaptiveGrids
          }
 
          return splitVertexEdges;
+      }
+
+      void DoubleSomeElemsOnEdge(int split,
+                             int minSplit,
+                             (Vector2D vert, int num)[] verticesEdge,
+                             List<IFiniteElement> listElemsFromCurElem,
+                             List<(Vector2D vert, int num)> listVerticesCurElems)
+      {
+         var step = split / minSplit;
+
+         for (int k = 1; k < verticesEdge.Length; k += step)
+         {
+            listVerticesCurElems.Add(verticesEdge[k]);
+            for (int elemi = 0; elemi < listElemsFromCurElem.Count; elemi++)
+            {
+               for (int edgei = 0; edgei < 3; edgei++)
+               {
+                  var edge = listElemsFromCurElem[elemi].Edge(edgei);
+                  edge = (listElemsFromCurElem[elemi].VertexNumber[edge.i], listElemsFromCurElem[elemi].VertexNumber[edge.j]);
+                  if (edge.i > edge.j) edge = (edge.j, edge.i);
+
+                  if (k - 1 == edge.i && k + 1 == edge.j)
+                  {
+                     var thirdVertex = 0;
+                     if (edgei == 0) thirdVertex = listElemsFromCurElem[elemi].VertexNumber[2];
+                     if (edgei == 1) thirdVertex = listElemsFromCurElem[elemi].VertexNumber[0];
+                     if (edgei == 2) thirdVertex = listElemsFromCurElem[elemi].VertexNumber[1];
+
+                     var elem1 = new TriangleFEQuadraticBaseWithNI(listElemsFromCurElem[elemi].Material, [edge.i, verticesEdge[k].num, thirdVertex]);
+                     var elem2 = new TriangleFEQuadraticBaseWithNI(listElemsFromCurElem[elemi].Material, [verticesEdge[k].num, edge.j, thirdVertex]);
+
+                     listElemsFromCurElem[elemi] = elem1;
+                     listElemsFromCurElem.Add(elem2);
+                  }
+               }
+            }
+         }
       }
    }
 }
