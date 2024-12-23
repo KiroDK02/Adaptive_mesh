@@ -163,7 +163,7 @@ namespace AdaptiveGrids
                   {
                      stop = false;
 
-                     splits[edges[i].edge] = maxSplit - 1; // Временно не maxSplit - 1
+                     splits[edges[i].edge] = maxSplit - 1;
                   }
                }
             }
@@ -221,10 +221,10 @@ namespace AdaptiveGrids
 
          var step = (maxDifference - minDifference) / 4;
 
-/*                  scaleSplits[0] = 0;
-                  scaleSplits[1] = 0;
-                  scaleSplits[2] = 1;
-                  scaleSplits[3] = 2;*/
+/*         scaleSplits[0] = 0;
+         scaleSplits[1] = 0;
+         scaleSplits[2] = 1;
+         scaleSplits[3] = 2;*/
 
          for (int i = 0; i < 4; ++i)
          {
@@ -361,7 +361,7 @@ namespace AdaptiveGrids
          var k2 = step2;
          var k3 = step3;
 
-         var h = (verticesEdge1[minSplit].vert - verticesEdge1[0].vert) / minSplit;
+         var h = (verticesEdge1[split1].vert - verticesEdge1[0].vert) / minSplit;
 
          for (int layer = 1, numVert = minSplit; layer < countLayer; layer++, numVert--)
          {
@@ -448,7 +448,8 @@ namespace AdaptiveGrids
                   edge = (listElemsFromCurElem[elemi].VertexNumber[edge.i], listElemsFromCurElem[elemi].VertexNumber[edge.j]);
                   if (edge.i > edge.j) edge = (edge.j, edge.i);
 
-                  if (k - 1 == edge.i && k + 1 == edge.j)
+                  if (verticesEdge[k - 1].num == edge.i && verticesEdge[k + 1].num == edge.j ||
+                      verticesEdge[k - 1].num == edge.j && verticesEdge[k + 1].num == edge.i)
                   {
                      var thirdVertex = 0;
                      if (edgei == 0) thirdVertex = listElemsFromCurElem[elemi].VertexNumber[2];
