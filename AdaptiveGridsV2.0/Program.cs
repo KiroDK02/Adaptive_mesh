@@ -1,29 +1,11 @@
 ﻿using FEM;
 using TelmaCore;
 using AdaptiveGrids;
-using Quasar.Native;
-using System.Runtime.CompilerServices;
-using System.Xml.XPath;
-using System.Reflection.PortableExecutable;
-using Meshes;
 using AdaptiveGrids.FiniteElements2D;
 using AdaptiveGrids.FiniteElements1D;
-using System.Reflection.Emit;
 System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
 
-double[] t = { 0, 2, 4, 6, 8, 10 };
-
-int minSplit = 8;
-int layer = 3;
-
-var countPassedVertices = (2 * (minSplit + 1) - (layer - 1)) * layer / 2;
-var countPassedVerticesNextLayer = (2 * (minSplit + 1) - layer) * (layer + 1) / 2;
-var elemi = 1;
-
-(int localV1, int localV2, int localV3) =
-   elemi % 2 == 0
-? (elemi / 2 + countPassedVertices, elemi / 2 + countPassedVertices + 1, elemi / 2 + countPassedVerticesNextLayer)
-: ((elemi + 1) / 2 + countPassedVertices, (elemi + 1) / 2 + countPassedVerticesNextLayer, (elemi + 1) / 2 + countPassedVerticesNextLayer - 1);
+double[] t = { 0, 1 };
 
 TimeMesh timeMesh = new TimeMesh(t);
 /*Vector2D[] vertex = { new(0, 0), new(6, 0), new(3, 6) };*/
@@ -75,11 +57,23 @@ materials.Add("2", new Material(false, false, true, x => 1, x => 1, (x, t) => -2
 materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => 100 + x.Y * x.Y, (x, t) => -4));
 materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => x.X * x.X + x.Y * x.Y, (x, t) => -4));*/
 
-materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
+/*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
+materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(1 + x.Y), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("2", new Material(false, true, false, x => 1, x => 1, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(x.X + 1), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => Math.Sin(10 + x.Y), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X + x.Y), (x, t) => -6 * (x.X + x.Y)));*/
+
+materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X) + Math.Sin(x.Y)));
+materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(1) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("2", new Material(false, true, false, x => 1, x => 1, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(x.X) + Math.Sin(1), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => Math.Sin(10) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
+
+/*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => 1 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
 materials.Add("2", new Material(false, false, true, x => 1, x => 1, (x, t) => -3, (x, t) => 216 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
 materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => 1000 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
-materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
+materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));*/
 
 /*materials.Add("volume", new Material(true, false, false, x => 2, x => 4, (x, t) => 0, (x, t) => 0, (x, t) => -12 * (x.X * x.Y)));
 materials.Add("1", new Material(false, false, true, x => 2, x => 4, (x, t) => 0, (x, t) => x.X * x.X * x.X, (x, t) => -12 * (x.X * x.Y)));
@@ -107,7 +101,8 @@ materials.Add("4", new Material(false, true, false, x => 2, x => 4, (x, t) => 0,
 
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X + x.Y, materials);
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X + x.Y * x.Y, materials);
-ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X * x.X + x.Y * x.Y * x.Y, materials);
+//ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X * x.X + x.Y * x.Y * x.Y, materials);
+ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => Math.Sin(x.X + x.Y), materials);
 
 problem.Prepare();
 Solution solution = new Solution(mesh, timeMesh);
@@ -115,11 +110,16 @@ problem.Solve(solution);
 
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X + x.Y + t;
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X + x.Y * x.Y;
-Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y;
+//Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y;
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X);
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
+Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Sin(x.Y);
 
 //Func<Vector2D, Vector2D> RealGradientFunc = x => new Vector2D(1, 1);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(2 * x.X, 2 * x.Y);
-Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(3 * x.X * x.X, 3 * x.Y * x.Y);
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(3 * x.X * x.X, 3 * x.Y * x.Y);
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
+Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), Math.Cos(x.Y));
 
 //Vector2D[] vertexes = { new Vector2D(0, 6), new Vector2D(3, 6), new Vector2D(6, 6),
 //                      new Vector2D(0, 3), new Vector2D(3, 3), new Vector2D(6, 3),
@@ -151,7 +151,7 @@ StreamWriter writerVertices = new StreamWriter("verticesBeforeAddaptation.txt");
 
 for (int i = 0; i < mesh.Vertex.Length; i++)
 {
-   writerVertices.WriteLine($"{mesh.Vertex[i].X} {mesh.Vertex[i].Y}");
+    writerVertices.WriteLine($"{mesh.Vertex[i].X} {mesh.Vertex[i].Y}");
 }
 
 writerVertices.Close();
@@ -160,16 +160,16 @@ StreamWriter writerTriangle = new StreamWriter("trianglesBeforeAddaptation.txt")
 
 foreach (var element in mesh.Elements)
 {
-   if (element.VertexNumber.Length != 2)
-   {
-      writerTriangle.WriteLine($"{element.VertexNumber[0]} {element.VertexNumber[1]} {element.VertexNumber[2]}");
-   }
+    if (element.VertexNumber.Length != 2)
+    {
+        writerTriangle.WriteLine($"{element.VertexNumber[0]} {element.VertexNumber[1]} {element.VertexNumber[2]}");
+    }
 
 }
 
 writerTriangle.Close();
 
-solution.Time = 2.0;
+solution.Time = 1.0;
 
 var addaptedMesh = mesh.DoAdaptation(solution, materials);
 
@@ -179,13 +179,13 @@ addaptedProblem.Prepare();
 var addaptedSolution = new Solution(addaptedMesh, timeMesh);
 addaptedProblem.Solve(addaptedSolution);
 
-addaptedSolution.Time = 2.0;
+addaptedSolution.Time = 1.0;
 
 writerVertices = new StreamWriter("verticesAfterAddaptation.txt");
 
 for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
 {
-   writerVertices.WriteLine($"{addaptedMesh.Vertex[i].X} {addaptedMesh.Vertex[i].Y}");
+    writerVertices.WriteLine($"{addaptedMesh.Vertex[i].X} {addaptedMesh.Vertex[i].Y}");
 }
 
 writerVertices.Close();
@@ -194,10 +194,10 @@ writerTriangle = new StreamWriter("trianglesAfterAddaptation.txt");
 
 foreach (var element in addaptedMesh.Elements)
 {
-   if (element.VertexNumber.Length != 2)
-   {
-      writerTriangle.WriteLine($"{element.VertexNumber[0]} {element.VertexNumber[1]} {element.VertexNumber[2]}");
-   }
+    if (element.VertexNumber.Length != 2)
+    {
+        writerTriangle.WriteLine($"{element.VertexNumber[0]} {element.VertexNumber[1]} {element.VertexNumber[2]}");
+    }
 }
 
 writerTriangle.Close();
@@ -206,45 +206,45 @@ string flag = "yes";
 
 while (flag != "no")
 {
-  //    Console.WriteLine("Введите время: ");
-  //    double time = double.Parse(Console.ReadLine()!);
-  // 
-  //    solution.Time = time;
+    //    Console.WriteLine("Введите время: ");
+    //    double time = double.Parse(Console.ReadLine()!);
+    // 
+    //    solution.Time = time;
 
-   Console.WriteLine("Введите x: ");
-   double x = double.Parse(Console.ReadLine()!);
+    Console.WriteLine("Введите x: ");
+    double x = double.Parse(Console.ReadLine()!);
 
-   Console.WriteLine("Введите y: ");
-   double y = double.Parse(Console.ReadLine()!);
+    Console.WriteLine("Введите y: ");
+    double y = double.Parse(Console.ReadLine()!);
 
-   Vector2D point = new Vector2D(x, y);
+    Vector2D point = new Vector2D(x, y);
 
-   Console.WriteLine($"time = {solution.Time}");
-   Console.WriteLine($"Значение в точке ({x};{y}) реального решения = " + RealFunc(point, solution.Time));
-   Console.WriteLine($"Значение в точке ({x};{y}) численного решения до адаптации = " + solution.Value(point));
-   Console.WriteLine($"Значение в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Value(point));
+    Console.WriteLine($"time = {solution.Time}");
+    Console.WriteLine($"Значение в точке ({x};{y}) реального решения = " + RealFunc(point, solution.Time));
+    Console.WriteLine($"Значение в точке ({x};{y}) численного решения до адаптации = " + solution.Value(point));
+    Console.WriteLine($"Значение в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Value(point));
 
-   Console.WriteLine($"Значение градиента в точке ({x};{y}) реального решения = " + RealGradientFunc(point, solution.Time));
-   Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения до адаптации = " + solution.Gradient(point));
-   Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Gradient(point));
+    Console.WriteLine($"Значение градиента в точке ({x};{y}) реального решения = " + RealGradientFunc(point, solution.Time));
+    Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения до адаптации = " + solution.Gradient(point));
+    Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Gradient(point));
 
-   /*foreach (var element in mesh.Elements)
-   {
-      if (element.VertexNumber.Length != 2)
-      {
-         if (element.IsPointOnElement(mesh.Vertex, point))
-         {
-            Vector2D gradNumerical = element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, point);
-            Vector2D gradReal = RealGradientFunc(point, solution.Time);
-            Console.WriteLine($"Градиент численного решения в точке ({x};{y}) = " + gradNumerical);
-            Console.WriteLine($"Градиент реального решения в точке ({x};{y}) = " + gradReal);
-         }
-      }
-   }*/
+    /*foreach (var element in mesh.Elements)
+    {
+       if (element.VertexNumber.Length != 2)
+       {
+          if (element.IsPointOnElement(mesh.Vertex, point))
+          {
+             Vector2D gradNumerical = element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, point);
+             Vector2D gradReal = RealGradientFunc(point, solution.Time);
+             Console.WriteLine($"Градиент численного решения в точке ({x};{y}) = " + gradNumerical);
+             Console.WriteLine($"Градиент реального решения в точке ({x};{y}) = " + gradReal);
+          }
+       }
+    }*/
 
-   Console.WriteLine("Хотите продолжить?");
+    Console.WriteLine("Хотите продолжить?");
 
-   flag = Console.ReadLine()!;
+    flag = Console.ReadLine()!;
 }
 
 

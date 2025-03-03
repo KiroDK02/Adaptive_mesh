@@ -6,162 +6,178 @@ using System.Text;
 using System.Threading.Tasks;
 using FEM;
 using TelmaCore;
+using Quadratures;
 
 namespace AdaptiveGrids
 {
-   public class Solution : ISolution
-   {
-      public Solution(IFiniteElementMesh mesh, ITimeMesh timeMesh, string _path = "")
-      {
-         Mesh = mesh;
-         TimeMesh = timeMesh;
-         solutionVector = new double[mesh.NumberOfDofs];
+    public class Solution : ISolution
+    {
+        public Solution(IFiniteElementMesh mesh, ITimeMesh timeMesh, string _path = "")
+        {
+            Mesh = mesh;
+            TimeMesh = timeMesh;
+            solutionVector = new double[mesh.NumberOfDofs];
 
-         if (_path.Length == 0)
-            path = "ParabolicProblemWeights";
+            if (_path.Length == 0)
+                path = "ParabolicProblemWeights";
 
-         if (Directory.Exists(path))
-            Directory.Delete(path, true);
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
 
-         Directory.CreateDirectory(path!);
-      }
+            Directory.CreateDirectory(path!);
+        }
 
-      double time = -1;
-      public double Time
-      {
-         get { return time; }
+        double time = -1;
+        public double Time
+        {
+            get { return time; }
 
-         set
-         {
-            if (TimeMesh[0] <= value && value <= TimeMesh[TimeMesh.Size() - 1])
+            set
             {
-               if (value != time)
-               {
-                  int ind = BinarySearch(TimeMesh, value, 0, TimeMesh.Size() - 1);
-                  time = TimeMesh[ind];
+                if (TimeMesh[0] <= value && value <= TimeMesh[TimeMesh.Size() - 1])
+                {
+                    if (value != time)
+                    {
+                        int ind = BinarySearch(TimeMesh, value, 0, TimeMesh.Size() - 1);
+                        time = TimeMesh[ind];
 
-                  using (StreamReader reader = new StreamReader(Path.Combine(path, time.ToString() + ".txt")))
-                  {
-                     string? coeff = null;
+                        using (StreamReader reader = new StreamReader(Path.Combine(path, time.ToString() + ".txt")))
+                        {
+                            string? coeff = null;
 
-                     for (int i = 0; (coeff = reader.ReadLine()) != null; ++i)
-                     {
-                        solutionVector[i] = double.Parse(coeff);
-                     }
-                  }
-               }
+                            for (int i = 0; (coeff = reader.ReadLine()) != null; ++i)
+                            {
+                                solutionVector[i] = double.Parse(coeff);
+                            }
+                        }
+                    }
+                }
             }
-         }
-      }
+        }
 
-      string path = "";
-      public IFiniteElementMesh Mesh { get; }
-      public ITimeMesh TimeMesh { get; }
+        string path = "";
+        public IFiniteElementMesh Mesh { get; }
+        public ITimeMesh TimeMesh { get; }
 
-      double[] solutionVector { get; }
-      public ReadOnlySpan<double> SolutionVector => solutionVector;
+        double[] solutionVector { get; }
+        public ReadOnlySpan<double> SolutionVector => solutionVector;
 
-      public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
-      {
-         var differenceFlow = new Dictionary<(int i, int j), double>();
+        public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
+        {
+            var differenceFlow = new Dictionary<(int i, int j), double>();
+            var quadratures = new QuadratureNodes<double>(NumericalIntegration.GaussQuadrature1DOrder3().ToArray(), 3);
 
-         foreach (var element in Mesh.Elements)
-         {
-            if (element.VertexNumber.Length != 2)
+            foreach (var element in Mesh.Elements)
             {
-               var lambda = materials[element.Material].Lambda;
+                if (element.VertexNumber.Length == 2)
+                    continue;
 
-               for (int i = 0; i < element.NumberOfEdges; ++i)
-               {
-                  var edge = element.Edge(i);
-                  edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+                var lambda = materials[element.Material].Lambda;
 
-                  var point1 = Mesh.Vertex[edge.i];
-                  var point2 = Mesh.Vertex[edge.j];
-                  var middleOfEdge = new Vector2D((point1.X + point2.X) / 2d, (point1.Y + point2.Y) / 2d);
+                for (int i = 0; i < element.NumberOfEdges; ++i)
+                {
+                    var edge = element.Edge(i);
+                    edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
 
-                  var vector = new Vector2D(point2.X - point1.X, point2.Y - point1.Y);
-                  var vectorOuterNormal = new Vector2D(vector.Y, -vector.X);
-                  vectorOuterNormal.Normalize();
+                    var x0 = Mesh.Vertex[edge.i].X;
+                    var x1 = Mesh.Vertex[edge.j].X;
+                    var y0 = Mesh.Vertex[edge.i].Y;
+                    var y1 = Mesh.Vertex[edge.j].Y;
 
-                  var valueGrad = Gradient(middleOfEdge);
+                    var lengthEdge = Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
 
-                  var flowAcrossEdge = lambda(middleOfEdge) * vectorOuterNormal * valueGrad;
+                    var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
+                    vectorOuterNormal.Normalize();
 
-                  if (edge.i > edge.j) edge = (edge.j, edge.i);
+                    var flow = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
+                        t =>
+                        {
+                            var x = x0 * (1 - t) + x1 * t;
+                            var y = y0 * (1 - t) + y1 * t;
 
-                  if (numberOccurrencesOfEdges[edge] == 1)
-                     differenceFlow.TryAdd(edge, 0);
-                  else
-                  {
-                     if (differenceFlow.TryGetValue(edge, out var curFlow))
-                        differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
-                     else differenceFlow.TryAdd(edge, flowAcrossEdge);
-                  }
-               }
+                            return lambda(new(x, y)) * vectorOuterNormal * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, new(x, y));
+                        });
+
+                    var flowAcrossEdge = flow * lengthEdge;
+
+                    if (edge.i > edge.j)
+                        edge = (edge.j, edge.i);
+
+                    if (numberOccurrencesOfEdges[edge] == 1)
+                        differenceFlow.Add(edge, 0.0);
+                    else
+                    {
+                        if (differenceFlow.TryGetValue(edge, out var curFlow))
+                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
+                        else
+                            differenceFlow.TryAdd(edge, flowAcrossEdge);
+                    }
+                }
             }
-         }
 
-         return differenceFlow;
-      }
+            return differenceFlow;
+        }
 
-      public double Value(Vector2D point)
-      {
-         foreach (var element in Mesh.Elements)
-         {
-            if (element.VertexNumber.Length != 2)
+        public double Value(Vector2D point)
+        {
+            foreach (var element in Mesh.Elements)
             {
-               if (element.IsPointOnElement(Mesh.Vertex, point))
-               {
-                  return element.GetValueAtPoint(Mesh.Vertex, solutionVector, point);
-               }
+                if (element.VertexNumber.Length != 2)
+                {
+                    if (element.IsPointOnElement(Mesh.Vertex, point))
+                    {
+                        return element.GetValueAtPoint(Mesh.Vertex, solutionVector, point);
+                    }
+                }
             }
-         }
 
-         return -100000; // значит точка вне области
-      }
+            return -100000; // значит точка вне области
+        }
 
-      public Vector2D Gradient(Vector2D point)
-      {
-         foreach (var element in Mesh.Elements)
-         {
-            if (element.VertexNumber.Length != 2)
+        public Vector2D Gradient(Vector2D point)
+        {
+            foreach (var element in Mesh.Elements)
             {
-               if (element.IsPointOnElement(Mesh.Vertex, point))
-               {
-                  return element.GetGradientAtPoint(Mesh.Vertex, solutionVector, point);
-               }
+                if (element.VertexNumber.Length != 2)
+                {
+                    if (element.IsPointOnElement(Mesh.Vertex, point))
+                    {
+                        return element.GetGradientAtPoint(Mesh.Vertex, solutionVector, point);
+                    }
+                }
             }
-         }
 
-         return new Vector2D(-100000, -100000); // значит точка вне области
-      }
+            return new Vector2D(-100000, -100000); // значит точка вне области
+        }
 
-      public void AddSolutionVector(double t, double[] solution)
-      {
-         using (StreamWriter writer = new StreamWriter(Path.Combine(path, t.ToString() + ".txt"), false))
-         {
-            foreach (var coeff in solution)
-               writer.WriteLine(coeff);
-         }
-      }
+        public void AddSolutionVector(double t, double[] solution)
+        {
+            using (StreamWriter writer = new StreamWriter(Path.Combine(path, t.ToString() + ".txt"), false))
+            {
+                foreach (var coeff in solution)
+                    writer.WriteLine(coeff);
+            }
+        }
 
-      public static int BinarySearch(ITimeMesh timeMesh, double target, int low, int high)
-      {
-         int mid = 0;
-         double midValue = 0;
+        public static int BinarySearch(ITimeMesh timeMesh, double target, int low, int high)
+        {
+            int mid = 0;
+            double midValue = 0;
 
-         while (low <= high)
-         {
-            mid = (low + high) / 2;
-            midValue = timeMesh[mid];
+            while (low <= high)
+            {
+                mid = (low + high) / 2;
+                midValue = timeMesh[mid];
 
-            if (midValue == target) return mid;
-            else if (midValue < target) low = mid + 1;
-            else high = mid - 1;
-         }
+                if (midValue == target)
+                    return mid;
+                else if (midValue < target)
+                    low = mid + 1;
+                else
+                    high = mid - 1;
+            }
 
-         return mid;
-      }
-   }
+            return mid;
+        }
+    }
 }
