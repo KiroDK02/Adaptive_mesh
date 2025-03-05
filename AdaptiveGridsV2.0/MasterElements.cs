@@ -27,7 +27,7 @@ namespace FEM
 
         private MasterElementTriangleBarycentrycQuadraticBase()
         {
-            QuadratureNodes = new(NumericalIntegration.GaussQuadratureTriangleOrder6().ToArray(), 6);
+            QuadratureNodes = new([.. NumericalIntegration.GaussQuadratureTriangleOrder6()], 6);
             ValuesBasicFuncs = MasterElementsAlgorithms.CalcValuesBasicFunc(QuadratureNodes, BasesFuncs);
             ValuesBasicFuncsGradient = MasterElementsAlgorithms.CalcValuesGradientsBasicFunc(QuadratureNodes, GradientsBasesFuncs);
             PsiMultPsi = MasterElementsAlgorithms.CalcPsiMultPsi(QuadratureNodes, ValuesBasicFuncs);

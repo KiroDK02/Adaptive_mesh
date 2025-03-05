@@ -9,13 +9,11 @@ namespace AdaptiveGrids
 {
     public class FiniteElementMesh : IAdaptiveFiniteElementMesh
     {
-        public FiniteElementMesh(IEnumerable<IFiniteElement> elements, Vector2D[] vertex, bool adapt = false)
+        public FiniteElementMesh(IEnumerable<IFiniteElement> elements, Vector2D[] vertex)
         {
             Elements = elements;
             Vertex = vertex;
-            Adapted = adapt;
         }
-        public bool Adapted { get; set; }
 
         public IEnumerable<IFiniteElement> Elements { get; }
 

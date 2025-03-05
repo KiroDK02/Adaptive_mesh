@@ -65,7 +65,7 @@ namespace AdaptiveGrids
         public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
         {
             var differenceFlow = new Dictionary<(int i, int j), double>();
-            var quadratures = new QuadratureNodes<double>(NumericalIntegration.GaussQuadrature1DOrder3().ToArray(), 3);
+            var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
 
             foreach (var element in Mesh.Elements)
             {

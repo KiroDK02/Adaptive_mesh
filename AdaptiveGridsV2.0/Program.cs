@@ -57,17 +57,17 @@ materials.Add("2", new Material(false, false, true, x => 1, x => 1, (x, t) => -2
 materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => 100 + x.Y * x.Y, (x, t) => -4));
 materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => x.X * x.X + x.Y * x.Y, (x, t) => -4));*/
 
-/*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
+materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(1 + x.Y), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("2", new Material(false, true, false, x => 1, x => 1, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(x.X + 1), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => Math.Sin(10 + x.Y), (x, t) => -6 * (x.X + x.Y)));
-materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X + x.Y), (x, t) => -6 * (x.X + x.Y)));*/
+materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X + x.Y), (x, t) => -6 * (x.X + x.Y)));
 
-materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X) + Math.Sin(x.Y)));
+/*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X) + Math.Sin(x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(1) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("2", new Material(false, true, false, x => 1, x => 1, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(x.X) + Math.Sin(1), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => Math.Sin(10) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
-materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));
+materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X) + Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));*/
 
 /*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => 1 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
@@ -112,14 +112,14 @@ problem.Solve(solution);
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X + x.Y * x.Y;
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
-Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Sin(x.Y);
+Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Sin(x.Y);
 
 //Func<Vector2D, Vector2D> RealGradientFunc = x => new Vector2D(1, 1);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(2 * x.X, 2 * x.Y);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(3 * x.X * x.X, 3 * x.Y * x.Y);
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
-Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), Math.Cos(x.Y));
+Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), Math.Cos(x.Y));
 
 //Vector2D[] vertexes = { new Vector2D(0, 6), new Vector2D(3, 6), new Vector2D(6, 6),
 //                      new Vector2D(0, 3), new Vector2D(3, 3), new Vector2D(6, 3),
@@ -173,7 +173,7 @@ solution.Time = 1.0;
 
 var addaptedMesh = mesh.DoAdaptation(solution, materials);
 
-var addaptedProblem = new ParabolicProblem(addaptedMesh, timeMesh, x => x.X * x.X * x.X + x.Y * x.Y * x.Y, materials);
+var addaptedProblem = new ParabolicProblem(addaptedMesh, timeMesh, x => Math.Sin(x.X + x.Y), materials);
 
 addaptedProblem.Prepare();
 var addaptedSolution = new Solution(addaptedMesh, timeMesh);
@@ -203,6 +203,43 @@ foreach (var element in addaptedMesh.Elements)
 writerTriangle.Close();
 
 string flag = "yes";
+
+var sizeX = (int)((8.0 - 4.0) / 0.0001);
+var points = new Vector2D[3 * (sizeX + 1)];
+
+var x0 = 4.0;
+var y0 = 4.0;
+
+var hx = 0.0001;
+var hy = 2.0;
+
+for (int i = 0; i < 3; i++)
+{
+    for (int j = 0; j < sizeX + 1; j++)
+    {
+        var num = i * (sizeX + 1) + j;
+
+        points[num] = new(x0 + j * hx, y0 + i * hy);
+    }
+}
+//err uniform split: 10.885540733491958
+//err after addaptation: 10.102403825784894
+var errBeforeAddaptation = 0.0;
+var errAfterAddaptation = 0.0;
+
+for (int i = 0; i < points.Length; i++)
+{
+    var realValue = RealFunc(points[i], solution.Time);
+
+    var valueBeforeAddaptation = solution.Value(points[i]);
+    var valueAfterAddaptation = addaptedSolution.Value(points[i]);
+
+    errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
+    errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
+}
+
+Console.WriteLine($"err before addaptation: {Math.Sqrt(errBeforeAddaptation)}");
+Console.WriteLine($"err after addaptation: {Math.Sqrt(errAfterAddaptation)}");
 
 while (flag != "no")
 {
