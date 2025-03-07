@@ -383,10 +383,10 @@ namespace AdaptiveGrids
 
             var step = (maxDifference - minDifference) / 4;
 
-            /*         scaleSplits[0] = 0;
-                     scaleSplits[1] = 0;
-                     scaleSplits[2] = 1;
-                     scaleSplits[3] = 2;*/
+/*          scaleSplits[0] = 0;
+            scaleSplits[1] = 1;
+            scaleSplits[2] = 2;
+            scaleSplits[3] = 3;*/
 
             for (int i = 0; i < 4; ++i)
             {
@@ -396,19 +396,18 @@ namespace AdaptiveGrids
 
             scaleDifference[4] = maxDifference;
 
-            foreach (var edge in differenceFlow)
+            foreach ((var edge, double difference) in differenceFlow)
             {
-                var difference = edge.Value;
                 var split = 0;
 
                 for (int i = 0; i < 4; ++i)
-                    if (scaleDifference[i] <= difference && difference <= scaleDifference[i + 1])
+                    if (difference <= scaleDifference[i + 1])
                     {
                         split = scaleSplits[i];
                         break;
                     }
 
-                edgeSplits.TryAdd(edge.Key, split);
+                edgeSplits.TryAdd(edge, split);
             }
 
             return edgeSplits;

@@ -89,7 +89,7 @@ namespace AdaptiveGrids
                     var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
                     vectorOuterNormal.Normalize();
 
-                    var flow = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
+                    var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
                         t =>
                         {
                             var x = x0 * (1 - t) + x1 * t;
@@ -97,8 +97,6 @@ namespace AdaptiveGrids
 
                             return lambda(new(x, y)) * vectorOuterNormal * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, new(x, y));
                         });
-
-                    var flowAcrossEdge = flow * lengthEdge;
 
                     if (edge.i > edge.j)
                         edge = (edge.j, edge.i);
