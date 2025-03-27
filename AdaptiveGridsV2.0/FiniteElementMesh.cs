@@ -4,16 +4,20 @@ using FEM;
 using TelmaCore;
 
 using static AdaptiveGrids.AddaptiveMeshesAlgorithms;
+using static FEM.IAdaptiveFiniteElementMesh;
 
 namespace AdaptiveGrids
 {
     public class FiniteElementMesh : IAdaptiveFiniteElementMesh
     {
-        public FiniteElementMesh(IEnumerable<IFiniteElement> elements, Vector2D[] vertex)
+        public FiniteElementMesh(IEnumerable<IFiniteElement> elements, Vector2D[] vertex, TypeRelativeDifference typeDifference)
         {
             Elements = elements;
             Vertex = vertex;
+            TypeDifference = typeDifference;
         }
+
+        public TypeRelativeDifference TypeDifference { get; }
 
         public IEnumerable<IFiniteElement> Elements { get; }
 
@@ -88,7 +92,7 @@ namespace AdaptiveGrids
             foreach (var (vert, num) in listVertices)
                 vertex[num] = vert;
 
-            return new FiniteElementMesh(listElems, vertex);
+            return new FiniteElementMesh(listElems, vertex, TypeDifference);
         }
     }
 }

@@ -7,12 +7,13 @@ using System.Threading.Tasks;
 using FEM;
 using TelmaCore;
 using Quadratures;
+using static FEM.IAdaptiveFiniteElementMesh;
 
 namespace AdaptiveGrids
 {
     public class Solution : ISolution
     {
-        public Solution(IFiniteElementMesh mesh, ITimeMesh timeMesh, string _path = "")
+        public Solution(IAdaptiveFiniteElementMesh mesh, ITimeMesh timeMesh, string _path = "")
         {
             Mesh = mesh;
             TimeMesh = timeMesh;
@@ -56,7 +57,7 @@ namespace AdaptiveGrids
         }
 
         string path = "";
-        public IFiniteElementMesh Mesh { get; }
+        public IAdaptiveFiniteElementMesh Mesh { get; }
         public ITimeMesh TimeMesh { get; }
 
         double[] solutionVector { get; }
@@ -65,12 +66,15 @@ namespace AdaptiveGrids
         public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
         {
             var differenceFlow = new Dictionary<(int i, int j), double>();
+            var valuesAtCenter = new Dictionary<(int i, int j), ValueAtCenter>();
             var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
 
             foreach (var element in Mesh.Elements)
             {
                 if (element.VertexNumber.Length == 2)
                     continue;
+
+                var center = (Mesh.Vertex[element.VertexNumber[0]] + Mesh.Vertex[element.VertexNumber[1]] + Mesh.Vertex[element.VertexNumber[2]]) / 3.0;
 
                 var lambda = materials[element.Material].Lambda;
 
@@ -106,9 +110,27 @@ namespace AdaptiveGrids
                     else
                     {
                         if (differenceFlow.TryGetValue(edge, out var curFlow))
-                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge);
+                        {
+                            double weight = Mesh.TypeDifference switch
+                            {
+                                TypeRelativeDifference.RelativeMaxAbs => double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
+
+                                TypeRelativeDifference.RelativeDerivate
+                                    => Math.Abs((valuesAtCenter[edge].Val - element.GetValueAtPoint(Mesh.Vertex, SolutionVector, center)) / (valuesAtCenter[edge].Center - center).Norm),
+
+                                TypeRelativeDifference.Absolute => 1.0,
+
+                                _ => throw new Exception("Invalid type relative difference")
+                            };
+
+                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
+                        }
                         else
+                        {
+                            if (Mesh.TypeDifference == TypeRelativeDifference.RelativeDerivate)
+                                valuesAtCenter.TryAdd(edge, new(element.GetValueAtPoint(Mesh.Vertex, SolutionVector, center), center));
                             differenceFlow.TryAdd(edge, flowAcrossEdge);
+                        }
                     }
                 }
             }
@@ -176,6 +198,17 @@ namespace AdaptiveGrids
             }
 
             return mid;
+        }
+    }
+
+    public class ValueAtCenter
+    {
+        public double Val { get; }
+        public Vector2D Center { get; }
+        public ValueAtCenter(double val, Vector2D center)
+        {
+            Center = center;
+            Val = val;
         }
     }
 }

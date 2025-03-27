@@ -57,6 +57,8 @@ namespace FEM
 
     public interface IAdaptiveFiniteElementMesh : IFiniteElementMesh
     {
+        enum TypeRelativeDifference { RelativeMaxAbs, RelativeDerivate, Absolute }
+        TypeRelativeDifference TypeDifference { get; }
         IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
     }
 
@@ -92,7 +94,7 @@ namespace FEM
     public interface ISolution
     {
         double Time { get; set; }
-        IFiniteElementMesh Mesh { get; }
+        IAdaptiveFiniteElementMesh Mesh { get; }
         ITimeMesh TimeMesh { get; }
         ReadOnlySpan<double> SolutionVector { get; }
         IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges);
