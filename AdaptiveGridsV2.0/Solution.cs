@@ -66,6 +66,7 @@ namespace AdaptiveGrids
         public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
         {
             var differenceFlow = new Dictionary<(int i, int j), double>();
+            var flowAtCenterElements = new Dictionary<(int i, int j), double>();
             var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
 
             foreach (var element in Mesh.Elements)
@@ -74,6 +75,14 @@ namespace AdaptiveGrids
                     continue;
 
                 var lambda = materials[element.Material].Lambda;
+
+                var point1 = Mesh.Vertex[element.VertexNumber[0]];
+                var point2 = Mesh.Vertex[element.VertexNumber[1]];
+                var point3 = Mesh.Vertex[element.VertexNumber[2]];
+
+                var center = (point1 + point2 + point3) / 3.0;
+
+                double flowAtCenter = (lambda(center) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, center)).Norm;
 
                 for (int i = 0; i < element.NumberOfEdges; ++i)
                 {
@@ -108,29 +117,32 @@ namespace AdaptiveGrids
                     {
                         if (differenceFlow.TryGetValue(edge, out var curFlow))
                         {
+                            double flow = flowAtCenterElements[edge];
+
                             double weight = Mesh.TypeDifference switch
                             {
-                                TypeRelativeDifference.Relative =>
-                                //double.Min(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
-                                //Math.Abs(curFlow + flowAcrossEdge) / 2.0,
-                                double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
+                                TypeRelativeDifference.Relative => double.Max(flow, flowAtCenter),
+                                //double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
 
                                 TypeRelativeDifference.Absolute => 1.0,
 
                                 _ => throw new Exception("Invalid type relative difference")
                             };
-                            
+
                             // TODO:
                             // попробовать относительно максимума модулей градиентов в центрах смежных
                             // как разницу нормально считать, там разные знаки, что логично
                             // пришло в голову в тупую поставить плюс, можно брать модуль разности модулей,
                             // можно брать по одинаковой нормали, как лучше? Будто одинаково и проще всего 1 или 2 вариант.
                             differenceFlow[edge] = Math.Abs(curFlow + flowAcrossEdge) / weight;
-//                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
+                            //                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
                             //differenceFlow[edge] = Math.Log(1.0 + Math.Abs(curFlow - flowAcrossEdge) / Math.Abs((curFlow + flowAcrossEdge) / 2.0));
                         }
                         else
+                        {
                             differenceFlow.TryAdd(edge, flowAcrossEdge);
+                            flowAtCenterElements.TryAdd(edge, flowAtCenter);
+                        }
                     }
                 }
             }
@@ -168,6 +180,22 @@ namespace AdaptiveGrids
             }
 
             return new Vector2D(-100000, -100000); // значит точка вне области
+        }
+
+        public Vector2D Flow(IDictionary<string, IMaterial> materials, Vector2D point)
+        {
+            foreach (var element in Mesh.Elements)
+            {
+                if (element.VertexNumber.Length != 2 &&
+                    element.IsPointOnElement(Mesh.Vertex, point))
+                {
+                    var lambda = materials[element.Material].Lambda;
+
+                    return lambda(point) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, point);
+                }
+            }
+
+            return new(-10000, -10000);
         }
 
         public void AddSolutionVector(double t, double[] solution)

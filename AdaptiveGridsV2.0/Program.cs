@@ -29,6 +29,14 @@ areas.Add(new(0, 1, 0, 1, "volume"));
                                              [1.0],
                                              [.. areas]);*/
 
+/*var generator = new GeneratorOfRectangleMesh([0.0, Math.PI],
+                                             [0.0, Math.PI],
+                                             [16],
+                                             [16],
+                                             [1.0],
+                                             [1.0],
+                                             [.. areas]);*/
+
 var generator = new GeneratorOfRectangleMesh([0.0, 3.0],
                                              [0.0, 3.0],
                                              [16],
@@ -42,29 +50,36 @@ var generator = new GeneratorOfRectangleMesh([0.0, 3.0],
 Console.WriteLine(
     """
     Select type difference of Flow:
-    <0> - Relative difference of flow.
-    <1> - Absolute difference of flow.
+    <1> - Relative difference of flow.
+    <2> - Absolute difference of flow.
     """);
-var type = (TypeRelativeDifference)int.Parse(Console.ReadLine()!);
+var type = (TypeRelativeDifference)(int.Parse(Console.ReadLine()!) - 1);
 
 Console.WriteLine(type switch
 {
-    TypeRelativeDifference.Relative => "Selected <0> - Relative difference of flow.",
-    TypeRelativeDifference.Absolute => "Selected <1> - Absolute difference of flow.",
+    TypeRelativeDifference.Relative => "Selected <1> - Relative difference of flow.",
+    TypeRelativeDifference.Absolute => "Selected <2> - Absolute difference of flow.",
     _ => throw new Exception("Invalid.")
 });
 
-IAdaptiveFiniteElementMesh mesh = new FiniteElementMesh(elements, vertex, type);
-/*FileManager manager = new FileManager();
-IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\mesh_telma.txt", type);*/
+//IAdaptiveFiniteElementMesh mesh = new FiniteElementMesh(elements, vertex, type);
+FileManager manager = new FileManager();
+IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\quadrupole.txt", type);
 
 IDictionary<string, IMaterial> materials = new Dictionary<string, IMaterial>();
 
-materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -2.0 / 3.0 * x.X));
+materials.Add("air", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 0));
+materials.Add("JMinus", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -1));
+materials.Add("JPlus", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 1));
+materials.Add("steel", new Material(true, false, false, x => 0.01, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 0));
+
+materials.Add("Zero tangent", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0.0, (x, t) => 0));
+
+/*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -2.0 / 3.0 * x.X));
 materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
 materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 3.0, (x, t) => 0));
 materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
-materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0.0, (x, t) => 0));
+materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0.0, (x, t) => 0));*/
 
 /*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Sin(x.X), (x, t) => -6 * (x.X + x.Y)));
@@ -109,7 +124,8 @@ materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0,
 
 //Func<Vector2D, double> initCondition = (x) => x.X + x.Y;
 //Func<Vector2D, double> initCondition = (x) => x.X * x.X + x.Y * x.Y;
-Func<Vector2D, double> initCondition = (x) => x.X * x.X * x.X / 9.0;
+//Func<Vector2D, double> initCondition = (x) => x.X * x.X * x.X / 9.0;
+Func<Vector2D, double> initCondition = (x) => 0.0;
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X + x.Y);
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) * Math.Sin(x.Y);
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Sin(x.Y);
@@ -155,21 +171,21 @@ var fileManager = new FileManager(Path.Combine(output, "verticesBeforeAddaptatio
                                   Path.Combine(output, "trianglesBeforeAddaptation.txt"),
                                   Path.Combine(output, "valuesBeforeAddaptation.txt"));
 
-fileManager.LoadToFile(vertex, elements, solution.SolutionVector.ToArray());
+fileManager.LoadToFile(mesh.Vertex, mesh.Elements, solution.SolutionVector.ToArray());
 
-var dxValues = new double[mesh.Vertex.Length];
-var dyValues = new double[mesh.Vertex.Length];
+var xFlowValues = new double[mesh.Vertex.Length];
+var yFlowValues = new double[mesh.Vertex.Length];
 
 for (int i = 0; i < mesh.Vertex.Length; i++)
 {
-    var grad = solution.Gradient(mesh.Vertex[i]);
+    var flow = solution.Flow(materials, mesh.Vertex[i]);
 
-    dxValues[i] = grad.X;
-    dyValues[i] = grad.Y;
+    xFlowValues[i] = flow.X;
+    yFlowValues[i] = flow.Y;
 }
 
-fileManager.LoadValuesToFile(dxValues, Path.Combine(output, "dxValuesBeforeAdaptation.txt"));
-fileManager.LoadValuesToFile(dyValues, Path.Combine(output, "dyValuesBeforeAdaptation.txt"));
+fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesBeforeAdaptation.txt"));
+fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesBeforeAdaptation.txt"));
 
 Console.WriteLine($"dofs - {mesh.NumberOfDofs}");
 Console.WriteLine($"elements - {mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
@@ -193,19 +209,22 @@ fileManager.LoadToFile(addaptedMesh.Vertex, addaptedMesh.Elements, addaptedSolut
 Console.WriteLine($"dofs - {addaptedMesh.NumberOfDofs}");
 Console.WriteLine($"elements - {addaptedMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
 
-dxValues = new double[addaptedMesh.Vertex.Length];
-dyValues = new double[addaptedMesh.Vertex.Length];
+xFlowValues = new double[addaptedMesh.Vertex.Length];
+yFlowValues = new double[addaptedMesh.Vertex.Length];
 
 for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
 {
-    var grad = addaptedSolution.Gradient(addaptedMesh.Vertex[i]);
+    var flow = addaptedSolution.Flow(materials, addaptedMesh.Vertex[i]);
 
-    dxValues[i] = grad.X;
-    dyValues[i] = grad.Y;
+    xFlowValues[i] = flow.X;
+    yFlowValues[i] = flow.Y;
 }
 
-fileManager.LoadValuesToFile(dxValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
-fileManager.LoadValuesToFile(dyValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
+fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
+fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
+
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");
+Console.WriteLine("Copy finished.");
 
 string flag = "yes";
 
@@ -249,23 +268,21 @@ var errBeforeAddaptation = 0.0;
 var errAfterAddaptation = 0.0;
 var normRealSolution = 0.0;
 
-/*for (int i = 0; i < points.Length; i++)
+for (int i = 0; i < points.Length; i++)
 {
     var realValue = RealFunc(points[i], solution.Time);
 
     var valueBeforeAddaptation = solution.Value(points[i]);
-  //  var valueAfterAddaptation = addaptedSolution.Value(points[i]);
+    var valueAfterAddaptation = addaptedSolution.Value(points[i]);
 
     normRealSolution += realValue * realValue;
 
     errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
-  //  errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
-}*/
+    errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
+}
 
 Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| до адаптации: {Math.Sqrt(errBeforeAddaptation / normRealSolution):e3}");
 Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| после адаптации: {Math.Sqrt(errAfterAddaptation / normRealSolution):e3}");
-
-fileManager.CopyDirectory(output, "..\\..\\..\\Output");
 
 /*while (flag != "no")
 {

@@ -101,6 +101,7 @@ namespace FEM
         void AddSolutionVector(double t, double[] solution);
         double Value(Vector2D point);
         Vector2D Gradient(Vector2D point);
+        Vector2D Flow(IDictionary<string, IMaterial> materials, Vector2D point);
     }
 
     public interface IProblem
