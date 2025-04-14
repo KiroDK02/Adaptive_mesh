@@ -4,87 +4,80 @@ using AdaptiveGrids;
 using AdaptiveGrids.FiniteElements2D;
 using AdaptiveGrids.FiniteElements1D;
 using static FEM.IAdaptiveFiniteElementMesh;
+using Quadratures;
+using System.Xml.Linq;
 System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
 
-double[] t = { 0, 1 };
+double[] t = { 0, 0.1 };
 
 TimeMesh timeMesh = new TimeMesh(t);
 
-var generator = new GeneratorOfTriangleMesh(0.0, Math.PI, 0.0, Math.PI, 16, 16);
+//var generator = new GeneratorOfTriangleMesh(0.0, Math.PI, 0.0, Math.PI, 16, 16);
 
-(IFiniteElement[] elements, Vector2D[] vertex) = generator.Generate();
+var areas = new List<SubArea>();
 
-/*Vector2D[] vertex = { new(0, 0), new(6, 0), new(3, 6) };*/
-//Vector2D[] vertex = { new(0, 0), new(6, 0), new(3, 3), new(0, 6), new(6, 6) };
-//                        0          1            2          3            4           5           6           7
-//Vector2D[] vertex = { new(1, 1), new(5, 1), new(10, 5), new(10, 10), new(8, 12), new(5, 10), new(1, 10), new(3, 5.5) };
-//Vector2D[] vertex = { new Vector2D(0, 6), new Vector2D(3, 6), new Vector2D(6, 6), 
-//                      new Vector2D(0, 3), new Vector2D(3, 3), new Vector2D(6, 3), 
-//                      new Vector2D(0, 0), new Vector2D(3, 0), new Vector2D(6, 0)};
-/*IFiniteElement[] elements = { new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 1, 2 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 1, 4, 2 }),
-                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 2, 4, 3 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 2, 3 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("1", new int[] { 0, 1 }), new TriangleFEStraightQuadraticBaseWithNI("2", new int[] { 1, 4 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("3", new int[] { 4, 3 }), new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 3, 0 })};*/
+/*areas.Add(new(0, 1, 0, 1, "air"));
+areas.Add(new(1, 2, 0, 1, "iron"));*/
 
-/*IFiniteElement[] elements = { new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 1, 7 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 0, 7, 6 }),
-                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 1, 5, 7 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 7, 5, 6 }),
-                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 1, 2, 5 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 2, 3, 5 }),
-                              new TriangleFEQuadraticBaseWithNI("volume", new int[] { 5, 3, 4 }), new TriangleFEQuadraticBaseWithNI("volume", new int[] { 5, 4, 6 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("2", new int[] { 0, 1 }), new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 1, 2 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("3", new int[] { 2, 3 }), new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 3, 4 }),
-                              new TriangleFEStraightQuadraticBaseWithNI("4", new int[] { 4, 6 }), new TriangleFEStraightQuadraticBaseWithNI("1", new int[] { 6, 0 })};*/
+areas.Add(new(0, 1, 0, 1, "volume"));
 
-/*IFiniteElement[] elements = { new TriangleFELinearBase("volume", new int[] { 0, 1, 3 }), new TriangleFELinearBase("volume", new int[] { 1, 2, 3 }),
-                              new TriangleFEStraghtLinearBase("1", new int[] { 0, 1 }), new TriangleFEStraghtLinearBase("2", new int[] { 1, 3 }),
-                              new TriangleFEStraghtLinearBase("3", new int[] { 2, 3 }), new TriangleFEStraghtLinearBase("4", new int[] { 0, 2 })};*/
+/*var generator = new GeneratorOfRectangleMesh([0.0, Math.PI / 2.0, Math.PI],
+                                             [0.0, Math.PI],
+                                             [8, 8],
+                                             [16],
+                                             [1.0, 1.0],
+                                             [1.0],
+                                             [.. areas]);*/
 
-/*IFiniteElement[] elements = { new TriangleFELinearBase("volum5e", new int[] { 0, 1, 2 }),
-                              new TriangleFEStraghtLinearBase("1", new int[] { 0, 1 }), new TriangleFEStraghtLinearBase("2", new int[] { 1, 2 }),
-                              new TriangleFEStraghtLinearBase("3", new int[] { 0, 2 })};*/
+var generator = new GeneratorOfRectangleMesh([0.0, 3.0],
+                                             [0.0, 3.0],
+                                             [16],
+                                             [16],
+                                             [1.0],
+                                             [1.0],
+                                             [.. areas]);
+
+(IFiniteElement[] elements, Vector2D[] vertex) = generator.GenerateToMesh();
 
 Console.WriteLine(
     """
-    Select type relative difference of Flow:
-    <0> - Relative to the max abs of module flow across edge.
-    <1> - Relative to the derivate of solution.
-    <2> - Absolute difference of flow.
+    Select type difference of Flow:
+    <0> - Relative difference of flow.
+    <1> - Absolute difference of flow.
     """);
 var type = (TypeRelativeDifference)int.Parse(Console.ReadLine()!);
 
 Console.WriteLine(type switch
 {
-    TypeRelativeDifference.RelativeMaxAbs => "Selected <0> - Relative to the max abs of module flow across edge.",
-    TypeRelativeDifference.RelativeDerivate => "Selected <1> - Relative to the derivate of solution.",
-    TypeRelativeDifference.Absolute => "Selected <2> - Absolute difference of flow.",
+    TypeRelativeDifference.Relative => "Selected <0> - Relative difference of flow.",
+    TypeRelativeDifference.Absolute => "Selected <1> - Absolute difference of flow.",
     _ => throw new Exception("Invalid.")
 });
 
 IAdaptiveFiniteElementMesh mesh = new FiniteElementMesh(elements, vertex, type);
+/*FileManager manager = new FileManager();
+IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\mesh_telma.txt", type);*/
 
 IDictionary<string, IMaterial> materials = new Dictionary<string, IMaterial>();
-/*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -4));
-materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 1 + x.Y * x.Y, (x, t) => 4));
-materials.Add("2", new Material(false, false, true, x => 1, x => 0, (x, t) => -2, (x, t) => 0, (x, t) => 4));
-materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 100 + x.Y * x.Y, (x, t) => 4));
-materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X + x.Y * x.Y, (x, t) => 4));*/
 
-/*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 0));
-materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 1 + x.Y, (x, t) => -4));
-materials.Add("2", new Material(false, false, true, x => 1, x => 0, (x, t) => -1, (x, t) => 216 + x.Y * x.Y * x.Y, (x, t) => -4));
-materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 216, (x, t) => 10 + x.Y, (x, t) => -4));
-materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X + x.Y, (x, t) => -4));*/
-
-/*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
-materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(1 + x.Y), (x, t) => -6 * (x.X + x.Y)));
-materials.Add("2", new Material(false, true, false, x => 1, x => 1, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(x.X + 1), (x, t) => -6 * (x.X + x.Y)));
-materials.Add("3", new Material(false, true, false, x => 1, x => 1, (x, t) => 216, (x, t) => Math.Sin(10 + x.Y), (x, t) => -6 * (x.X + x.Y)));
-materials.Add("4", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X + x.Y), (x, t) => -6 * (x.X + x.Y)));*/
+materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -2.0 / 3.0 * x.X));
+materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
+materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 3.0, (x, t) => 0));
+materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
+materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0.0, (x, t) => 0));
 
 /*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X + x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Sin(x.X), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => -Math.Cos(x.X + 1), (x, t) => Math.Sin(Math.PI + x.Y), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 216, (x, t) => Math.Sin(x.X + Math.PI), (x, t) => -6 * (x.X + x.Y)));
 materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Sin(x.Y), (x, t) => -6 * (x.X + x.Y)));*/
+
+/*materials.Add("air", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 2 * Math.Sin(x.X) * Math.Sin(x.Y)));
+materials.Add("iron", new Material(true, false, false, x => 10000, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => 20000 * Math.Sin(x.X) * Math.Sin(x.Y)));
+materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
+materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
+materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
+materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));*/
 
 /*materials.Add("volume", new Material(true, false, false, x => 1, x => 1, (x, t) => 0, (x, t) => 0, (x, t) => Math.Sin(x.X) + Math.Sin(x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 1, (x, t) => 0, (x, t) => Math.Sin(x.X), (x, t) => -6 * (x.X + x.Y)));
@@ -104,29 +97,11 @@ materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0,
 materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Cos(x.X), (x, t) => 0));
 materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 1 + Math.Cos(x.Y), (x, t) => 0));*/
 
-materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => Math.Sin(x.X) - Math.Exp(-x.Y)));
+/*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => Math.Sin(x.X) - Math.Exp(-x.Y)));
 materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Sin(x.X) + 1, (x, t) => 0));
 materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Exp(-x.Y), (x, t) => 0));
 materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Sin(x.X) + Math.Exp(-Math.PI), (x, t) => 0));
-materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Exp(-x.Y), (x, t) => 0));
-
-/*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
-materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 1 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
-materials.Add("2", new Material(false, false, true, x => 1, x => 0, (x, t) => -3, (x, t) => 0, (x, t) => -6 * (x.X + x.Y)));
-materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 216, (x, t) => 1000 + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));
-materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y, (x, t) => -6 * (x.X + x.Y)));*/
-
-/*materials.Add("volume", new Material(true, false, false, x => 2, x => 4, (x, t) => 0, (x, t) => 0, (x, t) => -12 * (x.X * x.Y)));
-materials.Add("1", new Material(false, false, true, x => 2, x => 4, (x, t) => 0, (x, t) => x.X * x.X * x.X, (x, t) => -12 * (x.X * x.Y)));
-materials.Add("2", new Material(false, true, false, x => 2, x => 4, (x, t) => 216, (x, t) => 216 + x.Y * x.Y * x.Y, (x, t) => -12 * (x.X * x.Y)));
-materials.Add("3", new Material(false, true, false, x => 2, x => 4, (x, t) => 216, (x, t) => x.X * x.X * x.X + 216, (x, t) => -12 * (x.X * x.Y)));
-materials.Add("4", new Material(false, true, false, x => 2, x => 4, (x, t) => 0, (x, t) => x.Y * x.Y * x.Y, (x, t) => -12 * (x.X * x.Y)));*/
-
-/*materials.Add("volume", new Material(true, false, false, x => 2, x => 4, (x, t) => 0, (x, t) => 0, (x, t) => 4));
-materials.Add("1", new Material(false, false, true, x => 2, x => 4, (x, t) => -2, (x, t) => x.X + t, (x, t) => 4));
-materials.Add("2", new Material(false, true, false, x => 2, x => 4, (x, t) => 0, (x, t) => 6 + x.Y + t, (x, t) => 4));
-materials.Add("3", new Material(false, true, false, x => 2, x => 4, (x, t) => 0, (x, t) => x.X + 6 + t, (x, t) => 4));
-materials.Add("4", new Material(false, true, false, x => 2, x => 4, (x, t) => 0, (x, t) => x.Y + t, (x, t) => 4));*/
+materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => Math.Exp(-x.Y), (x, t) => 0));*/
 
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X + x.Y, materials);
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X + x.Y * x.Y, materials);
@@ -134,11 +109,13 @@ materials.Add("4", new Material(false, true, false, x => 2, x => 4, (x, t) => 0,
 
 //Func<Vector2D, double> initCondition = (x) => x.X + x.Y;
 //Func<Vector2D, double> initCondition = (x) => x.X * x.X + x.Y * x.Y;
-//Func<Vector2D, double> initCondition = (x) => x.X * x.X * x.X + x.Y * x.Y * x.Y;
+Func<Vector2D, double> initCondition = (x) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X + x.Y);
+//Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) * Math.Sin(x.Y);
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Sin(x.Y);
 //Func<Vector2D, double> initCondition = (x) => Math.Cos(x.X) + Math.Cos(x.Y);
-Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Exp(-x.Y);
+//Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Exp(-x.Y);
+//Func<Vector2D, double> initCondition = (x) => Math.Exp(x.X + x.Y);
 
 ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, initCondition, materials);
 
@@ -148,32 +125,54 @@ problem.Solve(solution);
 
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X + x.Y;
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X + x.Y * x.Y;
-//Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X + x.Y * x.Y * x.Y;
+Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) * Math.Sin(x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Sin(x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Cos(x.X) + Math.Cos(x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Cos(x.X) + Math.Sin(x.Y);
-Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Exp(-x.Y);
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Exp(-x.Y);
+//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X + x.Y);
 
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(1, 1);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(2 * x.X, 2 * x.Y);
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(3 * x.X * x.X, 3 * x.Y * x.Y);
+Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(x.X * x.X / 3.0, 0);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X) * Math.Sin(x.Y), Math.Sin(x.X) * Math.Cos(x.Y));
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(-Math.Sin(x.X), -Math.Sin(x.Y));
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(-Math.Sin(x.X), Math.Cos(x.Y));
-Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), -Math.Exp(-x.Y));
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), -Math.Exp(-x.Y));
+//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Exp(x.X + x.Y), Math.Exp(x.X + x.Y));
 
-solution.Time = 1.0;
+solution.Time = 0.1;
 
-var fileManager = new FileManager("verticesBeforeAddaptation.txt",
-                                  "trianglesBeforeAddaptation.txt",
-                                  "valuesBeforeAddaptation.txt");
+string output = "Output";
+
+Directory.CreateDirectory(output);
+
+var fileManager = new FileManager(Path.Combine(output, "verticesBeforeAddaptation.txt"),
+                                  Path.Combine(output, "trianglesBeforeAddaptation.txt"),
+                                  Path.Combine(output, "valuesBeforeAddaptation.txt"));
 
 fileManager.LoadToFile(vertex, elements, solution.SolutionVector.ToArray());
 
+var dxValues = new double[mesh.Vertex.Length];
+var dyValues = new double[mesh.Vertex.Length];
+
+for (int i = 0; i < mesh.Vertex.Length; i++)
+{
+    var grad = solution.Gradient(mesh.Vertex[i]);
+
+    dxValues[i] = grad.X;
+    dyValues[i] = grad.Y;
+}
+
+fileManager.LoadValuesToFile(dxValues, Path.Combine(output, "dxValuesBeforeAdaptation.txt"));
+fileManager.LoadValuesToFile(dyValues, Path.Combine(output, "dyValuesBeforeAdaptation.txt"));
+
 Console.WriteLine($"dofs - {mesh.NumberOfDofs}");
-Console.WriteLine($"elements - {mesh.Elements.Count()}");
+Console.WriteLine($"elements - {mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
 
 var addaptedMesh = mesh.DoAdaptation(solution, materials);
 
@@ -183,26 +182,40 @@ addaptedProblem.Prepare();
 var addaptedSolution = new Solution(addaptedMesh, timeMesh);
 addaptedProblem.Solve(addaptedSolution);
 
-addaptedSolution.Time = 1.0;
+addaptedSolution.Time = 0.1;
 
-fileManager = new FileManager("verticesAfterAddaptation.txt",
-                              "trianglesAfterAddaptation.txt",
-                              "valuesAfterAddaptation.txt");
+fileManager = new FileManager(Path.Combine(output, "verticesAfterAddaptation.txt"),
+                              Path.Combine(output, "trianglesAfterAddaptation.txt"),
+                              Path.Combine(output, "valuesAfterAddaptation.txt"));
 
 fileManager.LoadToFile(addaptedMesh.Vertex, addaptedMesh.Elements, addaptedSolution.SolutionVector.ToArray());
 
 Console.WriteLine($"dofs - {addaptedMesh.NumberOfDofs}");
-Console.WriteLine($"elements - {addaptedMesh.Elements.Count()}");
+Console.WriteLine($"elements - {addaptedMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
+
+dxValues = new double[addaptedMesh.Vertex.Length];
+dyValues = new double[addaptedMesh.Vertex.Length];
+
+for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
+{
+    var grad = addaptedSolution.Gradient(addaptedMesh.Vertex[i]);
+
+    dxValues[i] = grad.X;
+    dyValues[i] = grad.Y;
+}
+
+fileManager.LoadValuesToFile(dxValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
+fileManager.LoadValuesToFile(dyValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
 
 string flag = "yes";
 
 double x0 = 0.1;
-double x1 = 3.0;
+double x1 = 2.9;
 double y0 = 0.1;
-double y1 = 3.0;
+double y1 = 2.9;
 
-int sizeX = 3000;
-int sizeY = 3000;
+int sizeX = 1000;
+int sizeY = 1000;
 
 double hx = (x1 - x0) / sizeX;
 double hy = (y1 - y0) / sizeY;
@@ -236,23 +249,25 @@ var errBeforeAddaptation = 0.0;
 var errAfterAddaptation = 0.0;
 var normRealSolution = 0.0;
 
-for (int i = 0; i < points.Length; i++)
+/*for (int i = 0; i < points.Length; i++)
 {
     var realValue = RealFunc(points[i], solution.Time);
 
     var valueBeforeAddaptation = solution.Value(points[i]);
-    var valueAfterAddaptation = addaptedSolution.Value(points[i]);
+  //  var valueAfterAddaptation = addaptedSolution.Value(points[i]);
 
     normRealSolution += realValue * realValue;
 
     errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
-    errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
-}
+  //  errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
+}*/
 
 Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| до адаптации: {Math.Sqrt(errBeforeAddaptation / normRealSolution):e3}");
 Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| после адаптации: {Math.Sqrt(errAfterAddaptation / normRealSolution):e3}");
 
-while (flag != "no")
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");
+
+/*while (flag != "no")
 {
     //    Console.WriteLine("Введите время: ");
     //    double time = double.Parse(Console.ReadLine()!);
@@ -279,17 +294,17 @@ while (flag != "no")
     Console.WriteLine("Хотите продолжить?");
 
     flag = Console.ReadLine()!;
-}
+}*/
 
 // cosx + cosy
 // 289 dofs - begin mesh
-// 0.00037566887783794893
+// 3.760e-004
 
-// 10637 dofs - addaptive
-// 6.154514250740975E-06
+// 9885 dofs - addaptive
+// 6.230e-006
 
 // 10609 dofs
-// 1.4588086325895405E-06
+// 1.750e-006   
 
 
 // x^3 + y^3

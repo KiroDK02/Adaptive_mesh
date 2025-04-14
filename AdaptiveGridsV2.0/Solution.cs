@@ -66,15 +66,12 @@ namespace AdaptiveGrids
         public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
         {
             var differenceFlow = new Dictionary<(int i, int j), double>();
-            var valuesAtCenter = new Dictionary<(int i, int j), ValueAtCenter>();
             var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
 
             foreach (var element in Mesh.Elements)
             {
                 if (element.VertexNumber.Length == 2)
                     continue;
-
-                var center = (Mesh.Vertex[element.VertexNumber[0]] + Mesh.Vertex[element.VertexNumber[1]] + Mesh.Vertex[element.VertexNumber[2]]) / 3.0;
 
                 var lambda = materials[element.Material].Lambda;
 
@@ -91,7 +88,7 @@ namespace AdaptiveGrids
                     var lengthEdge = Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
 
                     var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
-                    vectorOuterNormal.Normalize();
+                    vectorOuterNormal /= lengthEdge;
 
                     var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
                         t =>
@@ -113,24 +110,27 @@ namespace AdaptiveGrids
                         {
                             double weight = Mesh.TypeDifference switch
                             {
-                                TypeRelativeDifference.RelativeMaxAbs => double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
-
-                                TypeRelativeDifference.RelativeDerivate
-                                    => Math.Abs((valuesAtCenter[edge].Val - element.GetValueAtPoint(Mesh.Vertex, SolutionVector, center)) / (valuesAtCenter[edge].Center - center).Norm),
+                                TypeRelativeDifference.Relative =>
+                                //double.Min(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
+                                //Math.Abs(curFlow + flowAcrossEdge) / 2.0,
+                                double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
 
                                 TypeRelativeDifference.Absolute => 1.0,
 
                                 _ => throw new Exception("Invalid type relative difference")
                             };
-
-                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
+                            
+                            // TODO:
+                            // попробовать относительно максимума модулей градиентов в центрах смежных
+                            // как разницу нормально считать, там разные знаки, что логично
+                            // пришло в голову в тупую поставить плюс, можно брать модуль разности модулей,
+                            // можно брать по одинаковой нормали, как лучше? Будто одинаково и проще всего 1 или 2 вариант.
+                            differenceFlow[edge] = Math.Abs(curFlow + flowAcrossEdge) / weight;
+//                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
+                            //differenceFlow[edge] = Math.Log(1.0 + Math.Abs(curFlow - flowAcrossEdge) / Math.Abs((curFlow + flowAcrossEdge) / 2.0));
                         }
                         else
-                        {
-                            if (Mesh.TypeDifference == TypeRelativeDifference.RelativeDerivate)
-                                valuesAtCenter.TryAdd(edge, new(element.GetValueAtPoint(Mesh.Vertex, SolutionVector, center), center));
                             differenceFlow.TryAdd(edge, flowAcrossEdge);
-                        }
                     }
                 }
             }

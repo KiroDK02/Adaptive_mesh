@@ -57,7 +57,7 @@ namespace FEM
 
     public interface IAdaptiveFiniteElementMesh : IFiniteElementMesh
     {
-        enum TypeRelativeDifference { RelativeMaxAbs, RelativeDerivate, Absolute }
+        enum TypeRelativeDifference { Relative, Absolute }
         TypeRelativeDifference TypeDifference { get; }
         IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
     }

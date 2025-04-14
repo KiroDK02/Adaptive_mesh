@@ -224,3 +224,5 @@ ModelManifest.xml
 *.hps
 *.hvs
 *.msh
+/AdaptiveGridsV2.0/Input
+/AdaptiveGridsV2.0/Output

@@ -13,4 +13,8 @@
     <PackageReference Include="Quasar.Native" Version="1.0.0" />
   </ItemGroup>
 
+   <ItemGroup>
+      <None Include="Input\**\*" CopyToOutputDirectory="PreserveNewest" />
+   </ItemGroup>
+
 </Project>

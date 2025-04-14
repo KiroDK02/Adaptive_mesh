@@ -383,10 +383,15 @@ namespace AdaptiveGrids
 
             var step = (maxDifference - minDifference) / 4;
 
-/*          scaleSplits[0] = 0;
-            scaleSplits[1] = 1;
-            scaleSplits[2] = 2;
-            scaleSplits[3] = 3;*/
+            /*          scaleSplits[0] = 0;
+                        scaleSplits[1] = 1;
+                        scaleSplits[2] = 2;
+                        scaleSplits[3] = 3;*/
+
+/*            scaleDifference[0] = minDifference;
+            scaleDifference[1] = minDifference + step;
+            scaleDifference[2] = 0.5 * maxDifference;
+            scaleDifference[3] = 0.99 * maxDifference;*/
 
             for (int i = 0; i < 4; ++i)
             {
