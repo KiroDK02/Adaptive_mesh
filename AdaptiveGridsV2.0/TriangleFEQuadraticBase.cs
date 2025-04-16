@@ -70,6 +70,13 @@ namespace AdaptiveGrids
 
                 for (int i = 0; i < Dofs.Length; i++)
                 {
+
+/*                    Console.WriteLine($"""
+
+                        coef: {coeffs[Dofs[i]]}, 
+                        grad = ({gradBasicFuncs[i, 0](localPoint) * J[0, 0] + gradBasicFuncs[i, 1](localPoint) * J[0, 1]},{gradBasicFuncs[i, 0](localPoint) * J[1, 0] + gradBasicFuncs[i, 1](localPoint) * J[1, 1]})
+
+                        """);*/
                     valueGradAtPointX += coeffs[Dofs[i]] * (gradBasicFuncs[i, 0](localPoint) * J[0, 0] +
                                                             gradBasicFuncs[i, 1](localPoint) * J[0, 1]);
                     valueGradAtPointY += coeffs[Dofs[i]] * (gradBasicFuncs[i, 0](localPoint) * J[1, 0] +

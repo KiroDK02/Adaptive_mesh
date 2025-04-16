@@ -60,8 +60,15 @@ namespace AdaptiveGrids
         public IAdaptiveFiniteElementMesh Mesh { get; }
         public ITimeMesh TimeMesh { get; }
 
-        double[] solutionVector { get; }
-        public ReadOnlySpan<double> SolutionVector => solutionVector;
+        double[] solutionVector { get; set; }
+        public ReadOnlySpan<double> SolutionVector
+        {
+            get => solutionVector;
+            set
+            {
+                solutionVector = value.ToArray();
+            }
+        }
 
         public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
         {
@@ -82,7 +89,8 @@ namespace AdaptiveGrids
 
                 var center = (point1 + point2 + point3) / 3.0;
 
-                double flowAtCenter = (lambda(center) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, center)).Norm;
+                var flowAtCenter = (lambda(center) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, center));
+                double normFlowAtCenter = flowAtCenter.Norm;
 
                 for (int i = 0; i < element.NumberOfEdges; ++i)
                 {
@@ -99,7 +107,8 @@ namespace AdaptiveGrids
                     var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
                     vectorOuterNormal /= lengthEdge;
 
-                    var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
+                    var flowAcrossEdge = vectorOuterNormal * flowAtCenter;
+                    /*var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
                         t =>
                         {
                             var x = x0 * (1 - t) + x1 * t;
@@ -107,7 +116,7 @@ namespace AdaptiveGrids
 
                             return lambda(new(x, y)) * vectorOuterNormal * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, new(x, y));
                         });
-
+*/
                     if (edge.i > edge.j)
                         edge = (edge.j, edge.i);
 
@@ -121,7 +130,7 @@ namespace AdaptiveGrids
 
                             double weight = Mesh.TypeDifference switch
                             {
-                                TypeRelativeDifference.Relative => double.Max(flow, flowAtCenter),
+                                TypeRelativeDifference.Relative => double.Max(flow, normFlowAtCenter),
                                 //double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
 
                                 TypeRelativeDifference.Absolute => 1.0,
@@ -141,7 +150,7 @@ namespace AdaptiveGrids
                         else
                         {
                             differenceFlow.TryAdd(edge, flowAcrossEdge);
-                            flowAtCenterElements.TryAdd(edge, flowAtCenter);
+                            flowAtCenterElements.TryAdd(edge, normFlowAtCenter);
                         }
                     }
                 }
@@ -191,7 +200,7 @@ namespace AdaptiveGrids
                 {
                     var lambda = materials[element.Material].Lambda;
 
-                    return lambda(point) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, point);
+                    return -lambda(point) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, point);
                 }
             }
 
@@ -226,17 +235,6 @@ namespace AdaptiveGrids
             }
 
             return mid;
-        }
-    }
-
-    public class ValueAtCenter
-    {
-        public double Val { get; }
-        public Vector2D Center { get; }
-        public ValueAtCenter(double val, Vector2D center)
-        {
-            Center = center;
-            Val = val;
         }
     }
 }

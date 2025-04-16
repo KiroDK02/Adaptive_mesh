@@ -96,7 +96,7 @@ namespace FEM
         double Time { get; set; }
         IAdaptiveFiniteElementMesh Mesh { get; }
         ITimeMesh TimeMesh { get; }
-        ReadOnlySpan<double> SolutionVector { get; }
+        ReadOnlySpan<double> SolutionVector { get; set; }
         IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges);
         void AddSolutionVector(double t, double[] solution);
         double Value(Vector2D point);

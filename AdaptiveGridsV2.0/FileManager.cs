@@ -52,7 +52,7 @@ namespace AdaptiveGrids
                 int[] verts = inputStr[0] == "Triangle" ?
                               [int.Parse(inputStr[5]), int.Parse(inputStr[6]), int.Parse(inputStr[7])] :
                               [int.Parse(inputStr[5]), int.Parse(inputStr[6])];
-                
+
                 int material = int.Parse(inputStr[3]);
 
                 listElems.Add((material, verts));
@@ -105,52 +105,49 @@ namespace AdaptiveGrids
 
         public void LoadNodesToFile(Vector2D[] nodes)
         {
-            var streamWriter = new StreamWriter(PathNodes);
-
-            foreach ((double x, double y) in nodes)
-                streamWriter.WriteLine($"{x} {y}");
-
-            streamWriter.Close();
+            using (StreamWriter writer = new(PathNodes))
+            {
+                foreach ((double x, double y) in nodes)
+                    writer.WriteLine($"{x} {y}");
+            }
         }
         public void LoadTrianglesToFile(IEnumerable<IFiniteElement> elements)
         {
-            var streamWriter = new StreamWriter(PathTriangles);
-
-            foreach (var element in elements)
+            using (StreamWriter writer = new(PathTriangles))
             {
-                if (element.VertexNumber.Length == 2)
-                    continue;
+                foreach (var element in elements)
+                {
+                    if (element.VertexNumber.Length == 2)
+                        continue;
 
-                int num1 = element.VertexNumber[0];
-                int num2 = element.VertexNumber[1];
-                int num3 = element.VertexNumber[2];
+                    int num1 = element.VertexNumber[0];
+                    int num2 = element.VertexNumber[1];
+                    int num3 = element.VertexNumber[2];
 
-                streamWriter.WriteLine($"{num1} {num2} {num3}");
+                    writer.WriteLine($"{num1} {num2} {num3}");
+                }
             }
-
-            streamWriter.Close();
         }
         public void LoadValuesToFile(double[] values, string path = "")
         {
-            var streamWriter = path == "" ? new StreamWriter(PathValues) : new StreamWriter(path);
-
-            foreach (double value in values)
-                streamWriter.WriteLine(value);
-
-            streamWriter.Close();
+            using (StreamWriter writer = path == "" ? new StreamWriter(PathValues) : new StreamWriter(path))
+            {
+                foreach (double value in values)
+                    writer.WriteLine(value);
+            }
         }
 
         public void CopyDirectory(string pathSource, string pathTarget)
         {
             Directory.CreateDirectory(pathTarget);
 
-            foreach(var file in Directory.GetFiles(pathSource))
+            foreach (var file in Directory.GetFiles(pathSource))
             {
                 string targetFile = Path.Combine(pathTarget, Path.GetFileName(file));
                 File.Copy(file, targetFile, overwrite: true);
             }
 
-            foreach(var subDir in Directory.GetDirectories(pathSource))
+            foreach (var subDir in Directory.GetDirectories(pathSource))
             {
                 string targetSubDir = Path.Combine(pathTarget, Path.GetFileName(subDir));
                 Directory.CreateDirectory(targetSubDir);

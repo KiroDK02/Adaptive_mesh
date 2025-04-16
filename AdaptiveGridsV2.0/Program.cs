@@ -133,15 +133,35 @@ Func<Vector2D, double> initCondition = (x) => 0.0;
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Exp(-x.Y);
 //Func<Vector2D, double> initCondition = (x) => Math.Exp(x.X + x.Y);
 
-ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, initCondition, materials);
+EllipticalProblem problem = new(materials, mesh);
 
 problem.Prepare();
 Solution solution = new Solution(mesh, timeMesh);
 problem.Solve(solution);
 
+//solution.SolutionVector = [0.0, 1.0 / 9.0, 0.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 72.0, 0];
+/*int k = 0;
+foreach (var element in mesh.Elements)
+{
+    if (element.VertexNumber.Length == 2)
+        continue;
+    Vector2D edge = k % 2 == 0 ?
+                    mesh.Vertex[element.VertexNumber[0]] - mesh.Vertex[element.VertexNumber[2]] :
+                    mesh.Vertex[element.VertexNumber[1]] - mesh.Vertex[element.VertexNumber[0]];
+
+    var vectorOuterNorm = new Vector2D(edge.Y, -edge.X) / edge.Norm;
+
+    Vector2D center = (mesh.Vertex[element.VertexNumber[0]] + mesh.Vertex[element.VertexNumber[1]] + mesh.Vertex[element.VertexNumber[2]]) / 3.0;
+    k++;
+
+    Console.WriteLine($"{vectorOuterNorm * element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, center)}");
+    //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.5, 0.5))}");
+    //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.9, 0.9))}\n");
+}*/
+
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X + x.Y;
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X + x.Y * x.Y;
-Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
+//Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) * Math.Sin(x.Y);
@@ -150,6 +170,7 @@ Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Cos(x.X) + Math.Sin(x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Exp(-x.Y);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X + x.Y);
+Func<Vector2D, double, double>? RealFunc = null;
 
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(1, 1);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(2 * x.X, 2 * x.Y);
@@ -160,8 +181,6 @@ Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(x.X *
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(-Math.Sin(x.X), Math.Cos(x.Y));
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), -Math.Exp(-x.Y));
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Exp(x.X + x.Y), Math.Exp(x.X + x.Y));
-
-solution.Time = 0.1;
 
 string output = "Output";
 
@@ -187,18 +206,21 @@ for (int i = 0; i < mesh.Vertex.Length; i++)
 fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesBeforeAdaptation.txt"));
 fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesBeforeAdaptation.txt"));
 
-Console.WriteLine($"dofs - {mesh.NumberOfDofs}");
-Console.WriteLine($"elements - {mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
+Console.WriteLine($"""
+
+    Base mesh:
+    dofs - {mesh.NumberOfDofs}
+    elements - {mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """);
 
 var addaptedMesh = mesh.DoAdaptation(solution, materials);
 
-var addaptedProblem = new ParabolicProblem(addaptedMesh, timeMesh, initCondition, materials);
+EllipticalProblem addaptedProblem = new(materials, addaptedMesh);
 
 addaptedProblem.Prepare();
 var addaptedSolution = new Solution(addaptedMesh, timeMesh);
 addaptedProblem.Solve(addaptedSolution);
-
-addaptedSolution.Time = 0.1;
 
 fileManager = new FileManager(Path.Combine(output, "verticesAfterAddaptation.txt"),
                               Path.Combine(output, "trianglesAfterAddaptation.txt"),
@@ -206,8 +228,12 @@ fileManager = new FileManager(Path.Combine(output, "verticesAfterAddaptation.txt
 
 fileManager.LoadToFile(addaptedMesh.Vertex, addaptedMesh.Elements, addaptedSolution.SolutionVector.ToArray());
 
-Console.WriteLine($"dofs - {addaptedMesh.NumberOfDofs}");
-Console.WriteLine($"elements - {addaptedMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}");
+Console.WriteLine($"""
+    Adapted mesh:
+    dofs - {addaptedMesh.NumberOfDofs}
+    elements - {addaptedMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """);
 
 xFlowValues = new double[addaptedMesh.Vertex.Length];
 yFlowValues = new double[addaptedMesh.Vertex.Length];
@@ -222,9 +248,6 @@ for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
 
 fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
 fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
-
-fileManager.CopyDirectory(output, "..\\..\\..\\Output");
-Console.WriteLine("Copy finished.");
 
 string flag = "yes";
 
@@ -268,21 +291,62 @@ var errBeforeAddaptation = 0.0;
 var errAfterAddaptation = 0.0;
 var normRealSolution = 0.0;
 
+var difference = 0.0;
+var normBeforeAdaptation = 0.0;
+
 for (int i = 0; i < points.Length; i++)
 {
-    var realValue = RealFunc(points[i], solution.Time);
-
     var valueBeforeAddaptation = solution.Value(points[i]);
     var valueAfterAddaptation = addaptedSolution.Value(points[i]);
 
-    normRealSolution += realValue * realValue;
+    difference = (valueAfterAddaptation - valueBeforeAddaptation) * (valueAfterAddaptation - valueBeforeAddaptation);
+    normBeforeAdaptation += valueBeforeAddaptation * valueBeforeAddaptation;
 
-    errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
-    errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
+    if (RealFunc != null)
+    {
+        var realValue = RealFunc(points[i], solution.Time);
+        normRealSolution += realValue * realValue;
+
+        errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
+        errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
+    }
 }
 
-Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| до адаптации: {Math.Sqrt(errBeforeAddaptation / normRealSolution):e3}");
-Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| после адаптации: {Math.Sqrt(errAfterAddaptation / normRealSolution):e3}");
+if (RealFunc != null)
+{
+    Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| до адаптации: {Math.Sqrt(errBeforeAddaptation / normRealSolution):e3}");
+    Console.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| после адаптации: {Math.Sqrt(errAfterAddaptation / normRealSolution):e3}");
+}
+Console.WriteLine($"Относительная разница решений ||uBefore - uAfter|| / ||uBefore|| до и после адаптации: {Math.Sqrt(difference / normBeforeAdaptation):e3}\n");
+
+
+Console.WriteLine($"""
+    Overwrite or append last strings to file?
+    <1> - Overwrite to file.
+    <2> - Append to file.
+    """);
+
+var append = (int.Parse(Console.ReadLine()!) - 1) == 1;
+
+Console.WriteLine(append switch
+{
+    false => "Select <1> - Overwrite to file.",
+    true => "Select <2> - Append to file."
+});
+
+using (StreamWriter writer = new(Path.Combine(output, "differenceSolution.txt"), append))
+{
+    if (RealFunc != null)
+    {
+        writer.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| до адаптации: {Math.Sqrt(errBeforeAddaptation / normRealSolution):e3}");
+        writer.WriteLine($"Относительная погрешность решения ||uReal - uNumeric|| / ||uReal|| после адаптации: {Math.Sqrt(errAfterAddaptation / normRealSolution):e3}");
+    }
+
+    writer.WriteLine($"Относительная разница решений ||uBefore - uAfter|| / ||uBefore|| до и после адаптации: {Math.Sqrt(difference / normBeforeAdaptation):e3}\n");
+}
+
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");
+Console.WriteLine("Copy finished.");
 
 /*while (flag != "no")
 {
@@ -300,11 +364,11 @@ Console.WriteLine($"Относительная погрешность решен
     Vector2D point = new Vector2D(x, y);
 
     Console.WriteLine($"time = {solution.Time}");
-    Console.WriteLine($"Значение в точке ({x};{y}) реального решения = " + RealFunc(point, solution.Time));
+    Console.WriteLine($"Значение в точке ({x};{y}) реального решения = " + RealFunc(point, 1));
     Console.WriteLine($"Значение в точке ({x};{y}) численного решения до адаптации = " + solution.Value(point));
     Console.WriteLine($"Значение в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Value(point));
 
-    Console.WriteLine($"Значение градиента в точке ({x};{y}) реального решения = " + RealGradientFunc(point, solution.Time));
+    Console.WriteLine($"Значение градиента в точке ({x};{y}) реального решения = " + RealGradientFunc(point, 1));
     Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения до адаптации = " + solution.Gradient(point));
     Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Gradient(point));
 

@@ -24,8 +24,6 @@ namespace AdaptiveGrids
             InitialCondition = initCondition;
             Materials = materials;
         }
-
-        Vector2D b = new Vector2D(1, 1);
         public IDictionary<string, IMaterial> Materials { get; }
         public IFiniteElementMesh Mesh { get; }
         public ITimeMesh TimeMesh { get; }
