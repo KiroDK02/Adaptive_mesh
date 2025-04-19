@@ -383,15 +383,15 @@ namespace AdaptiveGrids
 
             var step = (maxDifference - minDifference) / 4;
 
-            /*          scaleSplits[0] = 0;
-                        scaleSplits[1] = 1;
-                        scaleSplits[2] = 2;
-                        scaleSplits[3] = 3;*/
+/*            scaleSplits[0] = 2;
+            scaleSplits[1] = 2;
+            scaleSplits[2] = 2;
+            scaleSplits[3] = 2;*/
 
-/*            scaleDifference[0] = minDifference;
-            scaleDifference[1] = minDifference + step;
-            scaleDifference[2] = 0.5 * maxDifference;
-            scaleDifference[3] = 0.99 * maxDifference;*/
+            /*            scaleDifference[0] = minDifference;
+                        scaleDifference[1] = minDifference + step;
+                        scaleDifference[2] = 0.5 * maxDifference;
+                        scaleDifference[3] = 0.99 * maxDifference;*/
 
             for (int i = 0; i < 4; ++i)
             {
@@ -416,6 +416,47 @@ namespace AdaptiveGrids
             }
 
             return edgeSplits;
+        }
+
+        public static IDictionary<(int i, int j), int> SearchSplits(Vector2D[] vertex,
+                                                                    IEnumerable<IFiniteElement> elements,
+                                                                    double x0, double x1,
+                                                                    double y0, double y1)
+        {
+            Dictionary<(int i, int j), int> splits = new();
+
+            foreach (var element in elements)
+            {
+                if (element.VertexNumber.Length == 2)
+                    continue;
+
+                for (int edgei = 0; edgei < element.NumberOfEdges;  edgei++)
+                {
+                    var edge = element.Edge(edgei);
+                    edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+                    if (edge.i > edge.j)
+                        edge = (edge.j, edge.i);
+
+                    if (splits.ContainsKey(edge))
+                        continue;
+
+                    int split = IsPointInsideRectangle(vertex[edge.i].X, vertex[edge.i].Y, x0, x1, y0, y1) ||
+                                IsPointInsideRectangle(vertex[edge.j].X, vertex[edge.j].Y, x0, x1, y0, y1) ?
+                                1 : 0;
+
+                    splits.Add(edge, split);
+                }
+            }
+
+            return splits;
+        }
+
+        public static bool IsPointInsideRectangle(double x, double y,
+                                                  double x0, double x1,
+                                                  double y0, double y1)
+        {
+            return x0 <= x && x <= x1 &&
+                   y0 <= y && y <= y1;
         }
     }
 }

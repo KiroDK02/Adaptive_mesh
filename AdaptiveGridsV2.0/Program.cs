@@ -6,9 +6,13 @@ using AdaptiveGrids.FiniteElements1D;
 using static FEM.IAdaptiveFiniteElementMesh;
 using Quadratures;
 using System.Xml.Linq;
+using System.Xml;
 System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
 
 double[] t = { 0, 0.1 };
+
+double[] array = new double[10];
+Array.Fill(array, double.MaxValue);
 
 TimeMesh timeMesh = new TimeMesh(t);
 
@@ -37,7 +41,7 @@ areas.Add(new(0, 1, 0, 1, "volume"));
                                              [1.0],
                                              [.. areas]);*/
 
-var generator = new GeneratorOfRectangleMesh([0.0, 3.0],
+/*var generator = new GeneratorOfRectangleMesh([0.0, 1.0],
                                              [0.0, 3.0],
                                              [16],
                                              [16],
@@ -45,7 +49,7 @@ var generator = new GeneratorOfRectangleMesh([0.0, 3.0],
                                              [1.0],
                                              [.. areas]);
 
-(IFiniteElement[] elements, Vector2D[] vertex) = generator.GenerateToMesh();
+(IFiniteElement[] elements, Vector2D[] vertex) = generator.GenerateToMesh();*/
 
 Console.WriteLine(
     """
@@ -64,7 +68,10 @@ Console.WriteLine(type switch
 
 //IAdaptiveFiniteElementMesh mesh = new FiniteElementMesh(elements, vertex, type);
 FileManager manager = new FileManager();
-IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\quadrupole.txt", type);
+//IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\квадруполь_грубая.txt", type);
+//IAdaptiveFiniteElementMesh mesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая.txt", type);
+IAdaptiveFiniteElementMesh startMesh = manager.ReadMeshFromTelma("Input\\квадруполь_грубая.txt", type);
+IAdaptiveFiniteElementMesh quadMesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая_учетверенная.txt", type);
 
 IDictionary<string, IMaterial> materials = new Dictionary<string, IMaterial>();
 
@@ -77,7 +84,7 @@ materials.Add("Zero tangent", new Material(false, true, false, x => 1, x => 0, (
 
 /*materials.Add("volume", new Material(true, false, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0, (x, t) => -2.0 / 3.0 * x.X));
 materials.Add("1", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
-materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 3.0, (x, t) => 0));
+materials.Add("2", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 1.0 / 9.0, (x, t) => 0));
 materials.Add("3", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => x.X * x.X * x.X / 9.0, (x, t) => 0));
 materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0, (x, t) => 0.0, (x, t) => 0));*/
 
@@ -122,25 +129,38 @@ materials.Add("4", new Material(false, true, false, x => 1, x => 0, (x, t) => 0,
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X + x.Y * x.Y, materials);
 //ParabolicProblem problem = new ParabolicProblem(mesh, timeMesh, x => x.X * x.X * x.X + x.Y * x.Y * x.Y, materials);
 
-//Func<Vector2D, double> initCondition = (x) => x.X + x.Y;
-//Func<Vector2D, double> initCondition = (x) => x.X * x.X + x.Y * x.Y;
 //Func<Vector2D, double> initCondition = (x) => x.X * x.X * x.X / 9.0;
 Func<Vector2D, double> initCondition = (x) => 0.0;
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X + x.Y);
-//Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) * Math.Sin(x.Y);
-//Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Sin(x.Y);
-//Func<Vector2D, double> initCondition = (x) => Math.Cos(x.X) + Math.Cos(x.Y);
-//Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X) + Math.Exp(-x.Y);
-//Func<Vector2D, double> initCondition = (x) => Math.Exp(x.X + x.Y);
 
-EllipticalProblem problem = new(materials, mesh);
+// *********************************************************************
+// Research
+EllipticalProblem quadProblem = new(materials, quadMesh);
+
+quadProblem.Prepare();
+Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
+quadProblem.Solve(goalSolution);
+
+Research research = new(0.0, 0.4, 20,
+                        0.0, 0.4, 20,
+                        0.0, 0.05, 10,
+                        0.0, Math.PI / 2.0, 10);
+
+research.DoResearch(goalSolution, startMesh, materials);
+
+manager.CopyDirectory("Output", "..\\..\\..\\Output");
+
+// End research
+// *********************************************************************
+
+/*EllipticalProblem problem = new(materials, mesh);
 
 problem.Prepare();
-Solution solution = new Solution(mesh, timeMesh);
+Solution solution = new Solution(mesh, new TimeMesh([0.0]));
 problem.Solve(solution);
 
 //solution.SolutionVector = [0.0, 1.0 / 9.0, 0.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 72.0, 0];
-/*int k = 0;
+*//*int k = 0;
 foreach (var element in mesh.Elements)
 {
     if (element.VertexNumber.Length == 2)
@@ -151,36 +171,22 @@ foreach (var element in mesh.Elements)
 
     var vectorOuterNorm = new Vector2D(edge.Y, -edge.X) / edge.Norm;
 
-    Vector2D center = (mesh.Vertex[element.VertexNumber[0]] + mesh.Vertex[element.VertexNumber[1]] + mesh.Vertex[element.VertexNumber[2]]) / 3.0;
+    Vector2D center = k % 2 == 0 ?
+                      (mesh.Vertex[element.VertexNumber[0]] + mesh.Vertex[element.VertexNumber[2]]) / 2.0 :
+                      (mesh.Vertex[element.VertexNumber[1]] + mesh.Vertex[element.VertexNumber[0]]) / 2.0;
     k++;
 
     Console.WriteLine($"{vectorOuterNorm * element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, center)}");
     //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.5, 0.5))}");
     //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.9, 0.9))}\n");
-}*/
+}*//*
 
-//Func<Vector2D, double, double> RealFunc = (x, t) => x.X + x.Y;
-//Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X + x.Y * x.Y;
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X);
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) * Math.Sin(x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Sin(x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Cos(x.X) + Math.Cos(x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Cos(x.X) + Math.Sin(x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X) + Math.Exp(-x.Y);
-//Func<Vector2D, double, double> RealFunc = (x, t) => Math.Exp(x.X + x.Y);
 Func<Vector2D, double, double>? RealFunc = null;
 
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(1, 1);
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(2 * x.X, 2 * x.Y);
 Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(x.X * x.X / 3.0, 0);
 //Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X) * Math.Sin(x.Y), Math.Sin(x.X) * Math.Cos(x.Y));
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(-Math.Sin(x.X), -Math.Sin(x.Y));
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(-Math.Sin(x.X), Math.Cos(x.Y));
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X), -Math.Exp(-x.Y));
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Exp(x.X + x.Y), Math.Exp(x.X + x.Y));
 
 string output = "Output";
 
@@ -256,8 +262,8 @@ double x1 = 2.9;
 double y0 = 0.1;
 double y1 = 2.9;
 
-int sizeX = 1000;
-int sizeY = 1000;
+int sizeX = 100;
+int sizeY = 100;
 
 double hx = (x1 - x0) / sizeX;
 double hy = (y1 - y0) / sizeY;
@@ -294,7 +300,7 @@ var normRealSolution = 0.0;
 var difference = 0.0;
 var normBeforeAdaptation = 0.0;
 
-for (int i = 0; i < points.Length; i++)
+*//*for (int i = 0; i < points.Length; i++)
 {
     var valueBeforeAddaptation = solution.Value(points[i]);
     var valueAfterAddaptation = addaptedSolution.Value(points[i]);
@@ -310,7 +316,7 @@ for (int i = 0; i < points.Length; i++)
         errBeforeAddaptation += (valueBeforeAddaptation - realValue) * (valueBeforeAddaptation - realValue);
         errAfterAddaptation += (valueAfterAddaptation - realValue) * (valueAfterAddaptation - realValue);
     }
-}
+}*//*
 
 if (RealFunc != null)
 {
@@ -346,63 +352,6 @@ using (StreamWriter writer = new(Path.Combine(output, "differenceSolution.txt"),
 }
 
 fileManager.CopyDirectory(output, "..\\..\\..\\Output");
-Console.WriteLine("Copy finished.");
-
-/*while (flag != "no")
-{
-    //    Console.WriteLine("Введите время: ");
-    //    double time = double.Parse(Console.ReadLine()!);
-    // 
-    //    solution.Time = time;
-
-    Console.WriteLine("Введите x: ");
-    double x = double.Parse(Console.ReadLine()!);
-
-    Console.WriteLine("Введите y: ");
-    double y = double.Parse(Console.ReadLine()!);
-
-    Vector2D point = new Vector2D(x, y);
-
-    Console.WriteLine($"time = {solution.Time}");
-    Console.WriteLine($"Значение в точке ({x};{y}) реального решения = " + RealFunc(point, 1));
-    Console.WriteLine($"Значение в точке ({x};{y}) численного решения до адаптации = " + solution.Value(point));
-    Console.WriteLine($"Значение в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Value(point));
-
-    Console.WriteLine($"Значение градиента в точке ({x};{y}) реального решения = " + RealGradientFunc(point, 1));
-    Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения до адаптации = " + solution.Gradient(point));
-    Console.WriteLine($"Значение градиента в точке ({x};{y}) численного решения после адаптации = " + addaptedSolution.Gradient(point));
-
-    Console.WriteLine("Хотите продолжить?");
-
-    flag = Console.ReadLine()!;
-}*/
-
-// cosx + cosy
-// 289 dofs - begin mesh
-// 3.760e-004
-
-// 9885 dofs - addaptive
-// 6.230e-006
-
-// 10609 dofs
-// 1.750e-006   
-
-
-// x^3 + y^3
-// 289 dofs - begin mesh
-// 9.96976424920583E-05
-
-// 2703 dofs - addaptive
-// 3.737150248060685E-05
-
-// 2809 dofs - uniform
-// 2.872799012531717E-06
-
-// TODO:
-// 1. взвесить на максимум по модулю из двух потоков
-// 2. взвесить на модуль разности значений в центрах
-// элементов деленное на расстояние (по сути численная производная)
-// 3. поэкспериментировать с параметрами адаптации (число интервалов шкалы, количество дроблений на интервале)
-// 4. для курсовика можно рисовать решение в виде градации цветов в ху-координатах - completed.
+Console.WriteLine("Copy finished.");*/
 
 return 0;

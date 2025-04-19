@@ -8,7 +8,7 @@ namespace AdaptiveGrids
 {
     public class SubArea
     {
-        public SubArea(int x0, int x1, int y0, int y1, string material)
+        public SubArea(int x0, int x1, int y0, int y1, string material = "Name material")
         {
             X0 = x0;
             X1 = x1;

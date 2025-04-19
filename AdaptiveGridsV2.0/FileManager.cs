@@ -4,6 +4,7 @@ using FEM;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using TelmaCore;
@@ -92,6 +93,61 @@ namespace AdaptiveGrids
             }
 
             return new FiniteElementMesh(elements, vertices, type);
+        }
+
+        public IAdaptiveFiniteElementMesh ReadMyMeshFormat(string path, TypeRelativeDifference type)
+        {
+            StreamReader reader = new(path);
+
+            int countVertices = int.Parse(reader.ReadLine()!);
+
+            var vertices = new Vector2D[countVertices];
+
+            for (int i = 0; i < countVertices; i++)
+            {
+                var str = reader.ReadLine()!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                vertices[i] = new(double.Parse(str[0]), double.Parse(str[1]));
+            }
+
+            int countElements = int.Parse(reader.ReadLine()!);
+
+            var elements = new IFiniteElement[countElements];
+
+            for (int i = 0; i < countElements; i++)
+            {
+                var str = reader.ReadLine()!.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                elements[i] = str[0] == "Triangle" ?
+                              new TriangleFEQuadraticBaseWithNI(string.Join(' ', str[4..]), [int.Parse(str[1]), int.Parse(str[2]), int.Parse(str[3])]) :
+                              new TriangleFEStraightQuadraticBaseWithNI(string.Join(' ', str[3..]), [int.Parse(str[1]), int.Parse(str[2])]);
+            }
+
+            reader.Close();
+
+            return new FiniteElementMesh(elements, vertices, type);
+        }
+
+        public void LoadMyMeshFormat(string path, IAdaptiveFiniteElementMesh mesh)
+        {
+            StreamWriter writer = new(path);
+
+            writer.WriteLine($"{mesh.Vertex.Length}");
+
+            foreach (var vertex in mesh.Vertex)
+                writer.WriteLine($"{vertex.X} {vertex.Y}");
+
+            writer.WriteLine($"{mesh.Elements.Count()}");
+
+            foreach (var element in mesh.Elements)
+            {
+                if (element.VertexNumber.Length == 3)
+                    writer.WriteLine($"Triangle {element.VertexNumber[0]} {element.VertexNumber[1]} {element.VertexNumber[2]} {element.Material}");
+                else
+                    writer.WriteLine($"Segment {element.VertexNumber[0]} {element.VertexNumber[1]} {element.Material}");
+            }
+
+            writer.Close();
         }
 
         public void LoadToFile(Vector2D[] nodes, IEnumerable<IFiniteElement> elements, double[] coeffs)

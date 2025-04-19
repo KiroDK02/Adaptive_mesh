@@ -60,6 +60,7 @@ namespace FEM
         enum TypeRelativeDifference { Relative, Absolute }
         TypeRelativeDifference TypeDifference { get; }
         IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
+        public IAdaptiveFiniteElementMesh DoubleInsideRectangle(double x0, double x1, double y0, double y1);
     }
 
     public interface ITimeMesh
