@@ -134,59 +134,89 @@ Func<Vector2D, double> initCondition = (x) => 0.0;
 //Func<Vector2D, double> initCondition = (x) => Math.Sin(x.X + x.Y);
 
 // *********************************************************************
-// Research
+// RESEARCH
 EllipticalProblem quadProblem = new(materials, quadMesh);
 
 quadProblem.Prepare();
 Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
-quadProblem.Solve(goalSolution);
+var discrepancy = quadProblem.Solve(goalSolution);
+
+string outputDirectory = "ResearchShiftWeights";
+Directory.CreateDirectory(Path.Combine("Output", outputDirectory));
 
 Research research = new(0.0, 0.4, 20,
                         0.0, 0.4, 20,
                         0.0, 0.05, 10,
-                        0.0, Math.PI / 2.0, 10);
+                        0.0, Math.PI / 2.0, 10,
+                        outputDirectory);
 
-research.DoResearch(goalSolution, startMesh, materials);
+Console.WriteLine($"""
+    Select type saved differences:
+    <1> - 10 maximus
+    <2> - 10 minimums
+
+    """);
+
+Research.SaveType saveType = (Research.SaveType)(int.Parse(Console.ReadLine()!) - 1);
+
+string saveTypeStr = saveType switch
+{
+    Research.SaveType.Max => "Selected type save differences - 10 max",
+    Research.SaveType.Min => "Selected type save differences - 10 min",
+    _ => throw new Exception("Invalid.")
+};
+
+Console.WriteLine(saveTypeStr);
+
+Console.WriteLine($"""
+    Select type of difference:
+    <1> - Shift from start solution
+    <2> - Difference with goal solution
+
+    """);
+
+Research.Difference diffType = (Research.Difference)(int.Parse(Console.ReadLine()!) - 1);
+
+string diffTypeStr = diffType switch
+{
+    Research.Difference.ShiftFromStartSolution => "Selected type differences - Shift from start solution",
+    Research.Difference.DiffWithGoalSolution => "Selected type differences - Difference with goal solution",
+    _ => throw new Exception("Invalid.")
+};
+
+Console.WriteLine(diffTypeStr);
+
+StreamWriter log = new(Path.Combine("Output", outputDirectory, "log.txt"));
+
+log.WriteLine($"""
+    {saveTypeStr}
+    {diffTypeStr}
+
+    Discrepancy solution of SLAE for quadMesh: {discrepancy:e4}
+
+    """);
+
+log.Close();
+
+research.DoResearch(goalSolution, startMesh, materials, saveType, diffType);
 
 manager.CopyDirectory("Output", "..\\..\\..\\Output");
 
-// End research
+// END RESEARCH
 // *********************************************************************
 
-/*EllipticalProblem problem = new(materials, mesh);
+// *********************************************************************
+// ADAPTATION
+
+/*EllipticalProblem problem = new(materials, startMesh);
 
 problem.Prepare();
-Solution solution = new Solution(mesh, new TimeMesh([0.0]));
+Solution solution = new Solution(startMesh, new TimeMesh([0.0]));
 problem.Solve(solution);
-
-//solution.SolutionVector = [0.0, 1.0 / 9.0, 0.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 9.0, 1.0 / 72.0, 1.0 / 72.0, 0];
-*//*int k = 0;
-foreach (var element in mesh.Elements)
-{
-    if (element.VertexNumber.Length == 2)
-        continue;
-    Vector2D edge = k % 2 == 0 ?
-                    mesh.Vertex[element.VertexNumber[0]] - mesh.Vertex[element.VertexNumber[2]] :
-                    mesh.Vertex[element.VertexNumber[1]] - mesh.Vertex[element.VertexNumber[0]];
-
-    var vectorOuterNorm = new Vector2D(edge.Y, -edge.X) / edge.Norm;
-
-    Vector2D center = k % 2 == 0 ?
-                      (mesh.Vertex[element.VertexNumber[0]] + mesh.Vertex[element.VertexNumber[2]]) / 2.0 :
-                      (mesh.Vertex[element.VertexNumber[1]] + mesh.Vertex[element.VertexNumber[0]]) / 2.0;
-    k++;
-
-    Console.WriteLine($"{vectorOuterNorm * element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, center)}");
-    //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.5, 0.5))}");
-    //    Console.WriteLine($"{element.GetGradientAtPoint(mesh.Vertex, solution.SolutionVector, new(0.9, 0.9))}\n");
-}*//*
 
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
-Func<Vector2D, double, double>? RealFunc = null;
-
-Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(x.X * x.X / 3.0, 0);
-//Func<Vector2D, double, Vector2D> RealGradientFunc = (x, t) => new Vector2D(Math.Cos(x.X + x.Y), Math.Cos(x.X + x.Y));
+//Func<Vector2D, double, double>? RealFunc = null;
 
 string output = "Output";
 
@@ -196,14 +226,14 @@ var fileManager = new FileManager(Path.Combine(output, "verticesBeforeAddaptatio
                                   Path.Combine(output, "trianglesBeforeAddaptation.txt"),
                                   Path.Combine(output, "valuesBeforeAddaptation.txt"));
 
-fileManager.LoadToFile(mesh.Vertex, mesh.Elements, solution.SolutionVector.ToArray());
+fileManager.LoadToFile(startMesh.Vertex, startMesh.Elements, solution.SolutionVector.ToArray());
 
-var xFlowValues = new double[mesh.Vertex.Length];
-var yFlowValues = new double[mesh.Vertex.Length];
+var xFlowValues = new double[startMesh.Vertex.Length];
+var yFlowValues = new double[startMesh.Vertex.Length];
 
-for (int i = 0; i < mesh.Vertex.Length; i++)
+for (int i = 0; i < startMesh.Vertex.Length; i++)
 {
-    var flow = solution.Flow(materials, mesh.Vertex[i]);
+    var flow = solution.Flow(materials, startMesh.Vertex[i]);
 
     xFlowValues[i] = flow.X;
     yFlowValues[i] = flow.Y;
@@ -215,12 +245,12 @@ fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesBeforeAd
 Console.WriteLine($"""
 
     Base mesh:
-    dofs - {mesh.NumberOfDofs}
-    elements - {mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+    dofs - {startMesh.NumberOfDofs}
+    elements - {startMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
 
     """);
 
-var addaptedMesh = mesh.DoAdaptation(solution, materials);
+var addaptedMesh = startMesh.DoAdaptation(solution, materials);
 
 EllipticalProblem addaptedProblem = new(materials, addaptedMesh);
 
@@ -255,6 +285,12 @@ for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
 fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
 fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
 
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");*/
+
+// END ADAPTATION
+// *********************************************************************
+
+/*
 string flag = "yes";
 
 double x0 = 0.1;
@@ -353,5 +389,10 @@ using (StreamWriter writer = new(Path.Combine(output, "differenceSolution.txt"),
 
 fileManager.CopyDirectory(output, "..\\..\\..\\Output");
 Console.WriteLine("Copy finished.");*/
+
+// TODO:
+// 1. Вывести невязку решения слау. COMPLETED
+// 2. вывести разницу весов в каждом узле.
+// 3. На удвоенной, вместо учетверенной.
 
 return 0;

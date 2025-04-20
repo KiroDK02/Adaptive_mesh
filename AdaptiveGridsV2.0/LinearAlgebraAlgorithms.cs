@@ -60,5 +60,18 @@ namespace AdaptiveGrids
 
             return result;
         }
+
+        public static double SparseMult(ReadOnlySpan<double> gg, ReadOnlySpan<int> jg, ReadOnlySpan<double> vec)
+        {
+            double sum = 0;
+            for (int i = 0; i < jg.Length; i++)
+                sum += vec[jg[i]] * gg[i];
+            return sum;
+        }
+        public static void SparseAdd(Span<double> w, ReadOnlySpan<int> jg, ReadOnlySpan<double> gg, double val)
+        {
+            for (int i = 0; i < jg.Length; i++)
+                w[jg[i]] += gg[i] * val;
+        }
     }
 }

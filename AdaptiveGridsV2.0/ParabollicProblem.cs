@@ -70,7 +70,7 @@ namespace AdaptiveGrids
             }
         }
 
-        public void Solve(ISolution result)
+        public double? Solve(ISolution result)
         {
             result.AddSolutionVector(TimeMesh[0], TimeMesh.Coefs(1));
 
@@ -188,6 +188,8 @@ namespace AdaptiveGrids
             }
 
             SLAESolver?.Dispose();
+
+            return 0.0;
         }
 
         double[] GetLocalCoeffs(double[] lc, int[] dofs, double[] coeffs)

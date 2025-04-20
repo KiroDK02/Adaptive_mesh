@@ -109,7 +109,7 @@ namespace FEM
     {
         IDictionary<string, IMaterial> Materials { get; }
         void Prepare();
-        void Solve(ISolution result);
+        double? Solve(ISolution result);
     }
 
     public interface IMatrix
@@ -119,6 +119,7 @@ namespace FEM
         void AddLocal(int[] dofs, double[,] matrix, double coeff = 1d);
         void Symmetrize(int dof, double value, double[] RightPart);
         void Clear();
+        void MultVect(double[] to, double[] result);
     }
 
     public interface ISLAE
@@ -126,6 +127,7 @@ namespace FEM
         IMatrix Matrix { get; }
         void AddLocalRightPart(int[] dofs, double[] lrp);
         void AddFirstBoundaryConditions(int[] dofs, double[] lrp);
+        double CalcDiscrepancy(double[] solution);
         void Clear();
         void ClearRightPart();
         double[] RightPart { get; }

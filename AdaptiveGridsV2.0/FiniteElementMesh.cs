@@ -97,6 +97,7 @@ namespace AdaptiveGrids
         public IAdaptiveFiniteElementMesh DoubleInsideRectangle(double x0, double x1, double y0, double y1)
         {
             var split = SearchSplits(Vertex, Elements, x0, x1, y0, y1);
+            split = SmoothToSplits(split, Elements);
 
             int countVertex = Vertex.Length;
             var verticesOfSplitedEdges = CalcVerticesOfEdges(split, ref countVertex, Elements, Vertex);

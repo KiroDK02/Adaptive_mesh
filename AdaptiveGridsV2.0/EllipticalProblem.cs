@@ -20,7 +20,7 @@ namespace AdaptiveGrids
             SLAE = new PardisoSLAE(new PardisoMatrix(FemAlgorithms.BuildPortraitFirstStep(Mesh), PardisoMatrixType.SymmetricIndefinite));
         }
 
-        public void Solve(ISolution result)
+        public double? Solve(ISolution result)
         {
             foreach (var element in Mesh.Elements)
             {
@@ -68,6 +68,10 @@ namespace AdaptiveGrids
             result.SolutionVector = SLAESolver.Solve();
 
             SLAESolver.Dispose();
+
+            var discrepancy = SLAE?.CalcDiscrepancy([..result.SolutionVector]);
+
+            return discrepancy;
         }
     }
 }

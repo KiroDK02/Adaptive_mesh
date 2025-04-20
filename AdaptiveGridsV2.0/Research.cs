@@ -14,8 +14,11 @@ namespace AdaptiveGrids
         public Research(double x0, double x1, int sizeX,
                         double y0, double y1, int sizeY,
                         double r0, double r1, int sizeR,
-                        double phi0, double phi1, int sizePhi)
+                        double phi0, double phi1, int sizePhi,
+                        string savePath = "")
         {
+            SavePath = savePath == "" ? "Research" : savePath;
+
             X = SplitSegment(x0, x1, sizeX);
             Y = SplitSegment(y0, y1, sizeY);
             double[] r = SplitSegment(r0, r1, sizeR);
@@ -39,21 +42,35 @@ namespace AdaptiveGrids
                 }
             }
         }
+        public enum SaveType { Max, Min }
+        public enum Difference { ShiftFromStartSolution, DiffWithGoalSolution }
+        public string SavePath { get; }
         public double[] X { get; set; }
         public double[] Y { get; set; }
         public Vector2D[] Points { get; set; }
 
         public void DoResearch(ISolution goalSolution,
-                               IAdaptiveFiniteElementMesh startMesh, IDictionary<string, IMaterial> materials)
+                               IAdaptiveFiniteElementMesh startMesh, IDictionary<string, IMaterial> materials,
+                               SaveType saveType, Difference diffType)
         {
+            string generalDirectory = Path.Combine("Output", SavePath);
+            Directory.CreateDirectory(generalDirectory);
+
+            StreamWriter log = new(Path.Combine(generalDirectory, "log.txt"), append:true);
+
             EllipticalProblem startProblem = new(materials, startMesh);
 
             startProblem.Prepare();
             Solution startSolution = new(startMesh, new TimeMesh([0.0]));
-            startProblem.Solve(startSolution);
+            var discrepancy = startProblem.Solve(startSolution);
 
-            double[] valuesSolution1 = CalcValuesGoalSolution(goalSolution);
-            
+            log.WriteLine($"Discrepancy solution of SLAE for start mesh: {discrepancy:e4}\n");
+
+            double startDifference = CalcShiftNewSolution(goalSolution, startSolution, startSolution.Mesh.Vertex.Length);
+
+            double[] valuesGoalSolution = CalcValuesGoalSolution(goalSolution);
+            double[] valuesStartSolution = CalcValuesGoalSolution(startSolution);
+
             double[] differences = new double[10];
             Rectangle[] rectangles = new Rectangle[10];
             int count = 0;
@@ -68,17 +85,51 @@ namespace AdaptiveGrids
 
                     newProblem.Prepare();
                     Solution newSolution = new(newMesh, new TimeMesh([0.0]));
-                    newProblem.Solve(newSolution);
+                    var newDiscrepancy = newProblem.Solve(newSolution);
 
-                    double difference = CalcDifferenceOfSoluitons(valuesSolution1, newSolution);
+                    double difference = CalcShiftNewSolution(goalSolution, newSolution, startSolution.Mesh.Vertex.Length);
 
-                    SaveDifference(differences, rectangles, ref count, difference, new(s * (X.Length - 1) + p,
+                    /*double difference = diffType switch
+                    {
+                        Difference.ShiftFromStartSolution => CalcShiftNewSolution(valuesStartSolution, newSolution),
+                        Difference.DiffWithGoalSolution => CalcDifferenceOfSolutions(valuesGoalSolution, newSolution),
+                        _ => throw new Exception("Invalid.")
+                    };*/
+
+                    //double difference = CalcDifferenceOfSolutions(valuesGoalSolution, newSolution);
+
+                    switch (saveType)
+                    {
+                        case SaveType.Max:
+                        {
+                            SaveDifferenceMax(differences, rectangles, ref count, difference, new(s * (X.Length - 1) + p,
+                                                                                                  X[p], X[p + 1],
+                                                                                                  Y[s], Y[s + 1],
+                                                                                                  startSolution,
+                                                                                                  newSolution));
+                            break;
+                        }
+
+                        case SaveType.Min:
+                        {
+                            SaveDifferenceMin(differences, rectangles, ref count, difference, new(s * (X.Length - 1) + p,
+                                                                                                  X[p], X[p + 1],
+                                                                                                  Y[s], Y[s + 1],
+                                                                                                  startSolution,
+                                                                                                  newSolution));
+                            break;
+                        }
+                        default:
+                            throw new Exception("Invalid.");
+                    }
+
+/*                    SaveDifferenceInAscendingOrder(differences, rectangles, ref count, difference, new(s * (X.Length - 1) + p,
                                                                                        X[p], X[p + 1],
                                                                                        Y[s], Y[s + 1],
                                                                                        startSolution,
-                                                                                       newSolution));
+                                                                                       newSolution));*/
 
-                    Console.WriteLine($"""
+                    string str = $"""
                         Number of rectangle - {s * (X.Length - 1) + p}
                             Rectangle:
                             x0 = {X[p]}
@@ -88,35 +139,78 @@ namespace AdaptiveGrids
 
                             Start mesh:
                             Number of dofs - {startSolution.Mesh.NumberOfDofs}
-                            Number of triangles- {startSolution.Mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+                            Number of triangles - {startSolution.Mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+                            Discrepancy solution of SLAE - {discrepancy:e4}
 
                             New mesh:
                             Number of dofs - {newSolution.Mesh.NumberOfDofs}
                             Number of triangles - {newSolution.Mesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+                            Discrepancy solution of SLAE - {newDiscrepancy:e4}
 
-                        """);
+                            Relative difference = {difference}
+                            Start difference = {startDifference}
+                            Start difference - relative difference = {startDifference - difference}
+
+                        """;
+
+                    log.WriteLine(str);
+                    Console.WriteLine(str);
                 }
             }
 
+            log.Close();
             SaveResult(differences, rectangles, materials);
         }
 
-        private double CalcDifferenceOfSoluitons(double[] solution1, ISolution solution2)
+        private double CalcDifferenceOfSolutions(double[] solution1, ISolution solution2)
         {
             double difference = 0.0;
-            double weigth = 0.0;
+            double weight = 0.0;
 
             for (int i = 0; i < Points.Length; i++)
             {
                 double valueSolution1 = solution1[i];
                 double valueSolution2 = solution2.Value(Points[i]);
 
-                weigth += valueSolution1 * valueSolution2;
+                weight += valueSolution1 * valueSolution1;
 
                 difference += (valueSolution1 - valueSolution2) * (valueSolution1 - valueSolution2);
             }
 
-            return Math.Sqrt(difference / weigth);
+            return Math.Sqrt(difference / weight);
+        }
+
+        private double CalcShiftNewSolution(double[] startSolution, ISolution newSolution)
+        {
+            double difference = 0.0;
+            double weight = 0.0;
+
+            for (int i = 0; i < Points.Length; i++)
+            {
+                double valueStartSolution = startSolution[i];
+                double valueNewSolution = newSolution.Value(Points[i]);
+
+                weight += valueStartSolution * valueStartSolution;
+
+                difference += (valueStartSolution - valueNewSolution) * (valueStartSolution - valueNewSolution);
+            }
+
+            return Math.Sqrt(difference / weight);
+        }
+
+        private double CalcShiftNewSolution(ISolution startSolution, ISolution newSolution, int length)
+        {
+            double difference = 0.0;
+
+            for (int i = 0; i < length; i++)
+            {
+                double weight1 = startSolution.SolutionVector[i];
+                double weight2 = newSolution.SolutionVector[i];
+
+                difference += (weight1 - weight2) * (weight1 - weight2);
+            }
+
+            return Math.Sqrt(difference);
         }
 
         private double[] CalcValuesGoalSolution(ISolution goalSolution)
@@ -129,7 +223,28 @@ namespace AdaptiveGrids
             return values;
         }
 
-        private void SaveDifference(double[] differences, Rectangle[] rectangles, ref int count, double difference, Rectangle rectangle)
+        private void SaveDifferenceMax(double[] differences, Rectangle[] rectangles, ref int count, double difference, Rectangle rectangle)
+        {
+            if (count == 10 && difference < differences[9])
+                return;
+
+            int i = count == 10 ? 8 : count - 1;
+
+            while (i >= 0 && differences[i] < difference)
+            {
+                differences[i + 1] = differences[i];
+                rectangles[i + 1] = rectangles[i];
+                i--;
+            }
+
+            differences[i + 1] = difference;
+            rectangles[i + 1] = rectangle;
+
+            if (count < 10)
+                count++;
+        }
+
+        private void SaveDifferenceMin(double[] differences, Rectangle[] rectangles, ref int count, double difference, Rectangle rectangle)
         {
             if (count == 10 && difference > differences[9])
                 return;
@@ -149,10 +264,10 @@ namespace AdaptiveGrids
             if (count < 10)
                 count++;
         }
-        
+
         private void SaveResult(double[] differences, Rectangle[] rectangles, IDictionary<string, IMaterial> materials)
         {
-            string generalDirectory = "Output\\Research";
+            string generalDirectory = Path.Combine("Output", SavePath);
             Directory.CreateDirectory(generalDirectory);
 
             for (int i = 0; i < differences.Length; i++)
@@ -163,7 +278,7 @@ namespace AdaptiveGrids
                 StreamWriter writerData = new(Path.Combine(directory, "data.txt"));
 
                 writerData.WriteLine($"""
-                    Relative differences with goal solution - {differences[i]}
+                    Relative differences - {differences[i]}
                     Border of rectangle:
                     x0 = {rectangles[i].X0}
                     x1 = {rectangles[i].X1}
@@ -204,7 +319,7 @@ namespace AdaptiveGrids
                                               Path.Combine(directory, "trianglesAfterAddaptation.txt"),
                                               Path.Combine(directory, "valuesAfterAddaptation.txt"));
 
-                fileManager.LoadToFile(rectangles[i].NewSolution.Mesh.Vertex, rectangles[i].NewSolution.Mesh.Elements, [..rectangles[i].NewSolution.SolutionVector]);
+                fileManager.LoadToFile(rectangles[i].NewSolution.Mesh.Vertex, rectangles[i].NewSolution.Mesh.Elements, [.. rectangles[i].NewSolution.SolutionVector]);
 
                 xFlowValues = new double[rectangles[i].NewSolution.Mesh.Vertex.Length];
                 yFlowValues = new double[rectangles[i].NewSolution.Mesh.Vertex.Length];

@@ -122,6 +122,24 @@ namespace Core
                 profile[i].Where(j => j >= i).ToArray().AsSpan().CopyTo(ja.AsSpan(ia[i]));
         }
 
+        public void MultVect(double[] to, double[] result)
+        {
+            Array.Fill(result, 0.0);
+            /*умножение матрицы на вектор*/
+            for (int i = 0; i < N; i++)
+            {
+                var k1 = ia[i];
+                var k2 = ia[i + 1];
+                result[i] += LinearAlgebraAlgorithms.SparseMult(values.AsSpan(k1, k2 - k1), ja.AsSpan(k1, k2 - k1), to);
+            }
+            for (int i = 0; i < N; i++)
+            {
+                var k1 = ia[i] + 1;
+                var k2 = ia[i + 1];
+                LinearAlgebraAlgorithms.SparseAdd(result, ja.AsSpan(k1, k2 - k1), values.AsSpan(k1, k2 - k1), to[i]);
+            }
+        }
+
         static int BinarySearch(int[] arr, int target, int low, int high)
         {
             while (low <= high)
