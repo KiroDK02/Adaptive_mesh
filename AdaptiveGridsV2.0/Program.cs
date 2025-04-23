@@ -72,6 +72,7 @@ FileManager manager = new FileManager();
 //IAdaptiveFiniteElementMesh mesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая.txt", type);
 IAdaptiveFiniteElementMesh startMesh = manager.ReadMeshFromTelma("Input\\квадруполь_грубая.txt", type);
 IAdaptiveFiniteElementMesh quadMesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая_учетверенная.txt", type);
+//IAdaptiveFiniteElementMesh quadMesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая_удвоенная.txt", type);
 
 IDictionary<string, IMaterial> materials = new Dictionary<string, IMaterial>();
 
@@ -135,20 +136,20 @@ Func<Vector2D, double> initCondition = (x) => 0.0;
 
 // *********************************************************************
 // RESEARCH
-EllipticalProblem quadProblem = new(materials, quadMesh);
+/*EllipticalProblem quadProblem = new(materials, quadMesh);
 
 quadProblem.Prepare();
 Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
 var discrepancy = quadProblem.Solve(goalSolution);
 
-string outputDirectory = "ResearchShiftWeights";
+string outputDirectory = "ResearchShiftWeightsWithDoubleMesh";
 Directory.CreateDirectory(Path.Combine("Output", outputDirectory));
 
 Research research = new(0.0, 0.4, 20,
                         0.0, 0.4, 20,
                         0.0, 0.05, 10,
                         0.0, Math.PI / 2.0, 10,
-                        outputDirectory);
+                        goalSolution, outputDirectory);
 
 Console.WriteLine($"""
     Select type saved differences:
@@ -198,9 +199,9 @@ log.WriteLine($"""
 
 log.Close();
 
-research.DoResearch(goalSolution, startMesh, materials, saveType, diffType);
+research.DoResearch(startMesh, materials, saveType, diffType);
 
-manager.CopyDirectory("Output", "..\\..\\..\\Output");
+manager.CopyDirectory("Output", "..\\..\\..\\Output");*/
 
 // END RESEARCH
 // *********************************************************************
@@ -208,12 +209,17 @@ manager.CopyDirectory("Output", "..\\..\\..\\Output");
 // *********************************************************************
 // ADAPTATION
 
-/*EllipticalProblem problem = new(materials, startMesh);
+EllipticalProblem problem = new(materials, startMesh);
 
 problem.Prepare();
 Solution solution = new Solution(startMesh, new TimeMesh([0.0]));
 problem.Solve(solution);
 
+EllipticalProblem quadProblem = new(materials, quadMesh);
+
+quadProblem.Prepare();
+Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
+quadProblem.Solve(goalSolution);
 //Func<Vector2D, double, double> RealFunc = (x, t) => x.X * x.X * x.X / 9.0;
 //Func<Vector2D, double, double> RealFunc = (x, t) => Math.Sin(x.X + x.Y);
 //Func<Vector2D, double, double>? RealFunc = null;
@@ -285,7 +291,59 @@ for (int i = 0; i < addaptedMesh.Vertex.Length; i++)
 fileManager.LoadValuesToFile(xFlowValues, Path.Combine(output, "dxValuesAfterAdaptation.txt"));
 fileManager.LoadValuesToFile(yFlowValues, Path.Combine(output, "dyValuesAfterAdaptation.txt"));
 
-fileManager.CopyDirectory(output, "..\\..\\..\\Output");*/
+Research research = new(0.0, 0.4, 20,
+                        0.0, 0.4, 20,
+                        0.0, 0.05, 10,
+                        0.0, Math.PI / 2.0, 10,
+                        goalSolution);
+
+double[] r = research.SplitSegment(0.0, 0.05, 10);
+double[] phi = research.SplitSegment(0.0, Math.PI / 2.0, 10);
+int N = r.Length * phi.Length;
+
+double shiftAdaptedFromGoalSolution = 0.0;
+double shiftAdaptedFromStartSolution = 0.0;
+double shiftStartFromGoalSolution = 0.0;
+
+for (int s = 0; s < phi.Length; s++)
+{
+    for (int p = 0; p < r.Length; p++)
+    {
+        double valueStartMesh = solution.Value(new(r[p], phi[s]));
+        double valueAdaptedMesh = addaptedSolution.Value(new(r[p], phi[s]));
+        double valueGoalSolution = goalSolution.Value(new(r[p], phi[s]));
+
+        shiftAdaptedFromGoalSolution += (valueAdaptedMesh - valueGoalSolution) * (valueAdaptedMesh - valueGoalSolution);
+        shiftAdaptedFromStartSolution += (valueAdaptedMesh - valueStartMesh) * (valueAdaptedMesh - valueStartMesh);
+        shiftStartFromGoalSolution += (valueGoalSolution - valueStartMesh) * (valueGoalSolution - valueStartMesh);
+    }
+}
+
+string nameDiffFlow = "flowAverageOnEdgeRelativeMaxAbsFlowOnEdge";
+Directory.CreateDirectory(Path.Combine(output, nameDiffFlow));
+
+using (StreamWriter log = new(Path.Combine(output, nameDiffFlow, "log.txt")))
+{
+    log.WriteLine($"""
+    Base mesh:
+    dofs - {startMesh.NumberOfDofs}
+    elements - {startMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """);
+
+    log.WriteLine($"""
+    Adapted mesh:
+    dofs - {addaptedMesh.NumberOfDofs}
+    elements - {addaptedMesh.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """);
+
+    log.WriteLine($"Shift start solution from goal solution - {(shiftStartFromGoalSolution / N):e5}");
+    log.WriteLine($"Shift adapted solution from goal solution - {(shiftAdaptedFromGoalSolution / N):e5}");
+    log.WriteLine($"Shift adapted solution from start solution - {(shiftAdaptedFromStartSolution / N):e5}");
+}
+
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");
 
 // END ADAPTATION
 // *********************************************************************
@@ -394,5 +452,10 @@ Console.WriteLine("Copy finished.");*/
 // 1. Вывести невязку решения слау. COMPLETED
 // 2. вывести разницу весов в каждом узле.
 // 3. На удвоенной, вместо учетверенной.
+
+// TODO: 
+// 1. Вывести скачки для критериев, которые надо напридумывать :)))
+// Взять решения в центрах и относительно среднего, снизу порог поставить, вдруг оно к нулю близко
+
 
 return 0;

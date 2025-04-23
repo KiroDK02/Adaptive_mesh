@@ -15,9 +15,10 @@ namespace AdaptiveGrids
                         double y0, double y1, int sizeY,
                         double r0, double r1, int sizeR,
                         double phi0, double phi1, int sizePhi,
-                        string savePath = "")
+                        ISolution goalSolution, string savePath = "")
         {
             SavePath = savePath == "" ? "Research" : savePath;
+            GoalSolution = goalSolution;
 
             X = SplitSegment(x0, x1, sizeX);
             Y = SplitSegment(y0, y1, sizeY);
@@ -41,6 +42,8 @@ namespace AdaptiveGrids
                     iter++;
                 }
             }
+
+            GoalSolution = goalSolution;
         }
         public enum SaveType { Max, Min }
         public enum Difference { ShiftFromStartSolution, DiffWithGoalSolution }
@@ -48,9 +51,9 @@ namespace AdaptiveGrids
         public double[] X { get; set; }
         public double[] Y { get; set; }
         public Vector2D[] Points { get; set; }
+        ISolution GoalSolution { get; }
 
-        public void DoResearch(ISolution goalSolution,
-                               IAdaptiveFiniteElementMesh startMesh, IDictionary<string, IMaterial> materials,
+        public void DoResearch(IAdaptiveFiniteElementMesh startMesh, IDictionary<string, IMaterial> materials,
                                SaveType saveType, Difference diffType)
         {
             string generalDirectory = Path.Combine("Output", SavePath);
@@ -66,9 +69,9 @@ namespace AdaptiveGrids
 
             log.WriteLine($"Discrepancy solution of SLAE for start mesh: {discrepancy:e4}\n");
 
-            double startDifference = CalcShiftNewSolution(goalSolution, startSolution, startSolution.Mesh.Vertex.Length);
+            double startDifference = CalcShiftNewSolution(GoalSolution, startSolution, startSolution.Mesh.Vertex.Length);
 
-            double[] valuesGoalSolution = CalcValuesGoalSolution(goalSolution);
+            double[] valuesGoalSolution = CalcValuesGoalSolution(GoalSolution);
             double[] valuesStartSolution = CalcValuesGoalSolution(startSolution);
 
             double[] differences = new double[10];
@@ -87,7 +90,7 @@ namespace AdaptiveGrids
                     Solution newSolution = new(newMesh, new TimeMesh([0.0]));
                     var newDiscrepancy = newProblem.Solve(newSolution);
 
-                    double difference = CalcShiftNewSolution(goalSolution, newSolution, startSolution.Mesh.Vertex.Length);
+                    double difference = CalcShiftNewSolution(GoalSolution, newSolution, startSolution.Mesh.Vertex.Length);
 
                     /*double difference = diffType switch
                     {
@@ -334,10 +337,22 @@ namespace AdaptiveGrids
 
                 fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesAfterAdaptation.txt"));
                 fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesAfterAdaptation.txt"));
+
+                double[] weightsDifference = new double[rectangles[i].StartSolution.Mesh.Vertex.Length];
+
+                for (int k = 0; k < rectangles[i].StartSolution.Mesh.Vertex.Length; k++)
+                    weightsDifference[k] = rectangles[i].StartSolution.SolutionVector[k] - GoalSolution.SolutionVector[k];
+
+                fileManager.LoadValuesToFile(weightsDifference, Path.Combine(directory, "weightsDifferencesBefore.txt"));
+
+                for (int k = 0; k < rectangles[i].StartSolution.Mesh.Vertex.Length; k++)
+                    weightsDifference[k] = rectangles[i].NewSolution.SolutionVector[k] - GoalSolution.SolutionVector[k];
+
+                fileManager.LoadValuesToFile(weightsDifference, Path.Combine(directory, "weightsDifferencesAfter.txt"));
             }
         }
 
-        private double[] SplitSegment(double beg, double end, int size)
+        public double[] SplitSegment(double beg, double end, int size)
         {
             double[] coords = new double[size + 1];
             double h = (end - beg) / size;
