@@ -70,13 +70,21 @@ namespace AdaptiveGrids
             }
         }
 
-        public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges)
+        public IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges, string output = "")
         {
             var differenceFlow = new Dictionary<(int i, int j), double>();
             var flowAtCenterElements = new Dictionary<(int i, int j), double>();
-            var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
             var diffFlowAtNodes = new Dictionary<int, double>();
-            var valuesAtCenterElements = new Dictionary<(int i, int j), double>();
+            var ValuesF = new Dictionary<(int i, int j), double>();
+
+            var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
+
+            //double max = AddaptiveMeshesAlgorithms.SearchMaxFlowOnEdge(this, materials);
+            //double max = AddaptiveMeshesAlgorithms.SearchMaxProjectionFlowOnEdge(this, materials);
+            double max = AddaptiveMeshesAlgorithms.SearchMaxNormFlowAtCenter(this, materials);
+
+            int count = 0;
+            int countEdges = 0;
 
             foreach (var element in Mesh.Elements)
             {
@@ -84,41 +92,41 @@ namespace AdaptiveGrids
                     continue;
 
                 var lambda = materials[element.Material].Lambda;
+                var F = materials[element.Material].F;
 
-                var point1 = Mesh.Vertex[element.VertexNumber[0]];
-                var point2 = Mesh.Vertex[element.VertexNumber[1]];
-                var point3 = Mesh.Vertex[element.VertexNumber[2]];
+                var center = LinearAlgebraAlgorithms.SearchCenterPolygon([Mesh.Vertex[element.VertexNumber[0]], Mesh.Vertex[element.VertexNumber[1]], Mesh.Vertex[element.VertexNumber[2]]]);
 
-                var center = (point1 + point2 + point3) / 3.0;
-
-                var valueAtCenter = element.GetValueAtPoint(Mesh.Vertex, SolutionVector, center);
                 var flowAtCenter = (lambda(center) * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, center));
                 double normFlowAtCenter = flowAtCenter.Norm;
+                double FAtCenter = F(center, Time);
 
                 for (int i = 0; i < element.NumberOfEdges; ++i)
                 {
                     var edge = element.Edge(i);
+                    int vertex3 = AddaptiveMeshesAlgorithms.ReturnNumberThirdVertex(edge.i, edge.j);
+
                     edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+                    vertex3 = element.VertexNumber[vertex3];
 
                     var x0 = Mesh.Vertex[edge.i].X;
                     var x1 = Mesh.Vertex[edge.j].X;
+                    var x2 = Mesh.Vertex[vertex3].X;
                     var y0 = Mesh.Vertex[edge.i].Y;
                     var y1 = Mesh.Vertex[edge.j].Y;
+                    var y2 = Mesh.Vertex[vertex3].Y;
 
-                    var lengthEdge = Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+                    var vectorOuterNormal = AddaptiveMeshesAlgorithms.CalcOuterNormal(x0, x1, x2, y0, y1, y2);
 
-                    var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
-                    vectorOuterNormal /= lengthEdge;
+                    Vector2D Convert1DPointTo2D(double point)
+                        => new(x0 * (1 - point) + x1 * point, y0 * (1 - point) + y1 * point);
 
-                    //var flowAcrossEdge = vectorOuterNormal * flowAtCenter;
-                    var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
+                    var flowAcrossEdge = vectorOuterNormal * flowAtCenter;
+                    /*var flowAcrossEdge = NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
                         t =>
                         {
-                            var x = x0 * (1 - t) + x1 * t;
-                            var y = y0 * (1 - t) + y1 * t;
-
-                            return lambda(new(x, y)) * vectorOuterNormal * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, new(x, y));
-                        });
+                            var point = Convert1DPointTo2D(t);
+                            return lambda(point) * vectorOuterNormal * element.GetGradientAtPoint(Mesh.Vertex, SolutionVector, point);
+                        });*/
 
                     if (edge.i > edge.j)
                         edge = (edge.j, edge.i);
@@ -129,29 +137,28 @@ namespace AdaptiveGrids
                     {
                         if (differenceFlow.TryGetValue(edge, out var curFlow))
                         {
+                            countEdges++;
                             double flow = flowAtCenterElements[edge];
-                            double value = valuesAtCenterElements[edge];
+                            double valueF = ValuesF[edge];
 
                             double weight = Mesh.TypeDifference switch
                             {
-                                TypeRelativeDifference.Relative => //double.Max(flow, normFlowAtCenter),
-                                double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)),
-                                //double.Max(Math.Abs((value + valueAtCenter) / 2.0), 1e-15),
+                                TypeRelativeDifference.Relative => 
+                                double.Max(flow, normFlowAtCenter) + double.Max(Math.Abs(valueF), Math.Abs(FAtCenter)),
+                                //double.Max(Math.Abs(curFlow), Math.Abs(flowAcrossEdge)) + double.Max(Math.Abs(valueF), Math.Abs(FAtCenter)),
 
                                 TypeRelativeDifference.Absolute => 1.0,
 
                                 _ => throw new Exception("Invalid type relative difference")
                             };
 
-                            // TODO:
-                            // попробовать относительно максимума модулей градиентов в центрах смежных
-                            // как разницу нормально считать, там разные знаки, что логично
-                            // пришло в голову в тупую поставить плюс, можно брать модуль разности модулей,
-                            // можно брать по одинаковой нормали, как лучше? Будто одинаково и проще всего 1 или 2 вариант.
+                            if (weight < 0.01 * max)
+                                count++;
+
+                            weight = weight < 0.01 * max ? 1.0 : weight;
+
                             var diffFlow = Math.Abs(curFlow + flowAcrossEdge) / weight;
                             differenceFlow[edge] = diffFlow;
-                            //                            differenceFlow[edge] = Math.Abs(curFlow - flowAcrossEdge) / weight;
-                            //differenceFlow[edge] = Math.Log(1.0 + Math.Abs(curFlow - flowAcrossEdge) / Math.Abs((curFlow + flowAcrossEdge) / 2.0));
 
                             if (!diffFlowAtNodes.TryGetValue(edge.i, out var curDiffFlowi) || diffFlow > curDiffFlowi)
                                 diffFlowAtNodes[edge.i] = diffFlow;
@@ -163,20 +170,24 @@ namespace AdaptiveGrids
                         {
                             differenceFlow.TryAdd(edge, flowAcrossEdge);
                             flowAtCenterElements.TryAdd(edge, normFlowAtCenter);
-                            valuesAtCenterElements.TryAdd(edge, valueAtCenter);
+                            ValuesF.TryAdd(edge, Math.Abs(FAtCenter));
                         }
                     }
                 }
             }
+            Console.WriteLine($"{count}/{countEdges}");
 
             double[] differencesFlowAtNodes = new double[Mesh.Vertex.Length];
 
-            foreach((int i, double diff) in diffFlowAtNodes)
+            foreach ((int i, double diff) in diffFlowAtNodes)
                 differencesFlowAtNodes[i] = diff;
 
             var manager = new FileManager();
 
-            manager.LoadValuesToFile(differencesFlowAtNodes, Path.Combine("Output", "differencesFlow.txt"));
+            if (output == "")
+                manager.LoadValuesToFile(differencesFlowAtNodes, Path.Combine("Output", "differencesFlow.txt"));
+            else
+                manager.LoadValuesToFile(differencesFlowAtNodes, Path.Combine(output, "differencesFlow.txt"));
 
             return differenceFlow;
         }

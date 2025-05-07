@@ -15,23 +15,33 @@ namespace AdaptiveGrids
             Elements = elements;
             Vertex = vertex;
             TypeDifference = typeDifference;
+
+            NumberOldEdgesForNewEdges = new Dictionary<(int i, int j), (int i, int j)>();
+            EdgesSplits = new Dictionary<(int i, int j), int>();
         }
 
         public TypeRelativeDifference TypeDifference { get; }
-
         public IEnumerable<IFiniteElement> Elements { get; }
-
         public Vector2D[] Vertex { get; }
-
         public int NumberOfDofs { get; set; }
 
-        public IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials)
+        private IDictionary<(int i, int j), (int i, int j)> NumberOldEdgesForNewEdges { get; set; }
+        private IDictionary<(int i, int j), int> EdgesSplits { get; set; }
+
+        public IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials, string output = "")
         {
-            var splitsOfEdges = DistributeSplitsToEdges(solution, materials);
+            var occurencesOfEdges = CalcNumberOccurrencesOfEdgesInElems(solution.Mesh.Elements);
+            var differenceFlow = solution.CalcDifferenceOfFlow(materials, occurencesOfEdges, output);
+
+            EdgesSplits = EdgesSplits.Count == 0 ?
+                          CalcEdgeSplits(occurencesOfEdges, differenceFlow) :
+                          CalcEdgeSplits(occurencesOfEdges, differenceFlow, NumberOldEdgesForNewEdges, EdgesSplits, Elements, solution.Mesh.Vertex);
+
+            var splitsOfEdges = DistributeSplitsToEdges(Elements, EdgesSplits);
             var smoothSplitsOfEdges = SmoothToSplits(splitsOfEdges, Elements);
 
             int countVertex = Vertex.Length;
-            var verticesOfSplitedEdges = CalcVerticesOfEdges(smoothSplitsOfEdges, ref countVertex, Elements, Vertex);
+            var verticesOfSplitedEdges = CalcVerticesOfEdges(smoothSplitsOfEdges, NumberOldEdgesForNewEdges, ref countVertex, Elements, Vertex);
 
             var listElems = new List<IFiniteElement>();
             var listVertices = new List<(Vector2D vert, int num)>();
@@ -100,7 +110,7 @@ namespace AdaptiveGrids
             split = SmoothToSplits(split, Elements);
 
             int countVertex = Vertex.Length;
-            var verticesOfSplitedEdges = CalcVerticesOfEdges(split, ref countVertex, Elements, Vertex);
+            var verticesOfSplitedEdges = CalcVerticesOfEdges(split, NumberOldEdgesForNewEdges, ref countVertex, Elements, Vertex);
 
             var listElems = new List<IFiniteElement>();
             var listVertices = new List<(Vector2D vert, int num)>();

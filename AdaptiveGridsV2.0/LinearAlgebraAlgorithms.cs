@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Quasar.Native;
+using TelmaCore;
 
 namespace AdaptiveGrids
 {
@@ -73,5 +75,17 @@ namespace AdaptiveGrids
             for (int i = 0; i < jg.Length; i++)
                 w[jg[i]] += gg[i] * val;
         }
+
+        public static Vector2D SearchCenterPolygon(Vector2D[] points)
+        {
+            var result = Vector2D.Zero;
+
+            foreach (var point in points)
+                result += point;
+
+            return result / points.Length;
+        }
+
+
     }
 }

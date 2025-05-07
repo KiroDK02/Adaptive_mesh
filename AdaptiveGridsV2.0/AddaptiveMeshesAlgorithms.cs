@@ -18,11 +18,11 @@ namespace AdaptiveGrids
             var edge1 = element.Edge(0);
             var edge2 = element.Edge(1);
             var edge3 = element.Edge(2);
-          
+
             edge1 = (element.VertexNumber[edge1.i], element.VertexNumber[edge1.j]);
             edge2 = (element.VertexNumber[edge2.i], element.VertexNumber[edge2.j]);
             edge3 = (element.VertexNumber[edge3.i], element.VertexNumber[edge3.j]);
-            
+
             if (edge1.i > edge1.j)
                 edge1 = (edge1.j, edge1.i);
             if (edge2.i > edge2.j)
@@ -116,11 +116,13 @@ namespace AdaptiveGrids
         }
 
         public static IDictionary<(int i, int j), (Vector2D vert, int num)[]> CalcVerticesOfEdges(IDictionary<(int i, int j), int> smoothSplitsOfEdges,
+                                                                                                  IDictionary<(int i, int j), (int i, int j)> numberOldEdgeForNewEdges,
                                                                                                   ref int countVertex,
                                                                                                   IEnumerable<IFiniteElement> elements,
                                                                                                   Vector2D[] vertex)
         {
             var verticesOfSplitEdges = new Dictionary<(int i, int j), (Vector2D vert, int num)[]>();
+            numberOldEdgeForNewEdges.Clear();
 
             foreach (var element in elements)
             {
@@ -157,6 +159,18 @@ namespace AdaptiveGrids
                     vertices[split] = (v1, edge.j);
 
                     verticesOfSplitEdges[edge] = vertices;
+
+                    if (split == 1)
+                        continue;
+
+                    for (int k = 0; k < vertices.Length - 1; k++)
+                    {
+                        (int i, int j) newEdge = (vertices[k].num, vertices[k + 1].num);
+                        if (newEdge.i > newEdge.j)
+                            newEdge = (newEdge.j, newEdge.i);
+
+                        numberOldEdgeForNewEdges[newEdge] = edge;
+                    }
                 }
             }
 
@@ -330,13 +344,12 @@ namespace AdaptiveGrids
             return splits;
         }
 
-        public static Dictionary<(int i, int j), int> DistributeSplitsToEdges(ISolution solution, IDictionary<string, IMaterial> materials)
+        public static Dictionary<(int i, int j), int> DistributeSplitsToEdges(IEnumerable<IFiniteElement> elements,
+                                                                              IDictionary<(int i, int j), int> edgeSplits)
         {
             var distributedSplits = new Dictionary<(int i, int j), int>();
 
-            var edgeSplits = CalcEdgeSplits(solution, materials);
-
-            foreach (var element in solution.Mesh.Elements)
+            foreach (var element in elements)
             {
                 if (element.VertexNumber.Length == 2)
                     continue;
@@ -369,11 +382,10 @@ namespace AdaptiveGrids
             return distributedSplits;
         }
 
-        public static Dictionary<(int i, int j), int> CalcEdgeSplits(ISolution solution, IDictionary<string, IMaterial> materials)
+        public static IDictionary<(int i, int j), int> CalcEdgeSplits(IDictionary<(int i, int j), int> occurencesOfEdges,
+                                                                      IDictionary<(int i, int j), double> differenceFlow)
         {
             var edgeSplits = new Dictionary<(int i, int j), int>();
-            var occurencesOfEdges = CalcNumberOccurrencesOfEdgesInElems(solution.Mesh.Elements);
-            var differenceFlow = solution.CalcDifferenceOfFlow(materials, occurencesOfEdges);
 
             var scaleDifference = new double[5];
             var scaleSplits = new int[4];
@@ -383,10 +395,10 @@ namespace AdaptiveGrids
 
             var step = (maxDifference - minDifference) / 4;
 
-/*            scaleSplits[0] = 2;
-            scaleSplits[1] = 2;
-            scaleSplits[2] = 2;
-            scaleSplits[3] = 2;*/
+            scaleSplits[0] = 0;
+            scaleSplits[1] = 0;
+            scaleSplits[2] = 0;
+            scaleSplits[3] = 1;
 
             /*            scaleDifference[0] = minDifference;
                         scaleDifference[1] = minDifference + step;
@@ -396,9 +408,10 @@ namespace AdaptiveGrids
             for (int i = 0; i < 4; ++i)
             {
                 scaleDifference[i] = minDifference + step * i;
-                scaleSplits[i] = i;
+                //scaleSplits[i] = i;
             }
 
+            scaleDifference[3] = 0.65 * maxDifference;
             scaleDifference[4] = maxDifference;
 
             foreach ((var edge, double difference) in differenceFlow)
@@ -418,6 +431,66 @@ namespace AdaptiveGrids
             return edgeSplits;
         }
 
+        public static IDictionary<(int i, int j), int> CalcEdgeSplits(IDictionary<(int i, int j), int> occurencesOfEdges,
+                                                                      IDictionary<(int i, int j), double> differenceFlow,
+                                                                      IDictionary<(int i, int j), (int i, int j)> numberOldEdgesForNewEdges,
+                                                                      IDictionary<(int i, int j), int> edgeSplits,
+                                                                      IEnumerable<IFiniteElement> elements, Vector2D[] vertices)
+        {
+            var splits = new Dictionary<(int i, int j), int>();
+
+            double maxDifferences = differenceFlow.Values.Max();
+            double minDifferences = differenceFlow.Where(x => occurencesOfEdges[x.Key] != 1).MinBy(x => x.Value).Value;
+
+            double step = (maxDifferences - minDifferences) / 4.0;
+
+            int[] scaleSplits = [0, 0, 0, 1];
+            double[] scaleDifferences = [minDifferences, minDifferences + step, minDifferences + 2 * step, 0.65 * maxDifferences, maxDifferences];
+
+            int maxNumber = edgeSplits.Keys.SelectMany(t => new[] { t.i, t.j }).Max();
+
+            foreach ((var edge, double diff) in differenceFlow)
+            {
+                int split = 0;
+
+                for (int i = 0; i < 4; i++)
+                    if (diff <= scaleDifferences[i + 1])
+                    {
+                        split = scaleSplits[i];
+                        break;
+                    }
+
+                if (edge.i <= maxNumber && edge.j <= maxNumber)
+                    splits[edge] = edgeSplits[edge] + split;
+                else if (numberOldEdgesForNewEdges.TryGetValue(edge, out var oldEdge))
+                {
+                    if (!splits.TryGetValue(oldEdge, out var countSplit) || countSplit < edgeSplits[oldEdge] + split)
+                        splits[oldEdge] = edgeSplits[oldEdge] + split;
+                }
+                else
+                {
+                    var point = (vertices[edge.i] + vertices[edge.j]) / 2.0;
+
+                    foreach (var element in elements)
+                        if (element.VertexNumber.Length != 2 && element.IsPointOnElement(vertices, point))
+                        {
+                            for (int i = 0; i < element.NumberOfEdges; i++)
+                            {
+                                var edgei = element.Edge(i);
+                                edgei = (element.VertexNumber[edgei.i], element.VertexNumber[edgei.j]);
+                                if (edgei.i > edgei.j)
+                                    edgei = (edgei.j, edgei.i);
+
+                                if (!splits.TryGetValue(edgei, out var countSplit) || countSplit < edgeSplits[edgei] + split)
+                                    splits[edgei] = edgeSplits[edgei] + split;
+                            }
+                        }
+                }
+            }
+
+            return splits;
+        }
+
         public static IDictionary<(int i, int j), int> SearchSplits(Vector2D[] vertex,
                                                                     IEnumerable<IFiniteElement> elements,
                                                                     double x0, double x1,
@@ -430,7 +503,7 @@ namespace AdaptiveGrids
                 if (element.VertexNumber.Length == 2)
                     continue;
 
-                for (int edgei = 0; edgei < element.NumberOfEdges;  edgei++)
+                for (int edgei = 0; edgei < element.NumberOfEdges; edgei++)
                 {
                     var edge = element.Edge(edgei);
                     edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
@@ -457,6 +530,170 @@ namespace AdaptiveGrids
         {
             return x0 <= x && x <= x1 &&
                    y0 <= y && y <= y1;
+        }
+
+        public static int ReturnNumberThirdVertex(int vertex1, int vertex2)
+        {
+            int vertex3 = vertex1 switch
+            {
+                0 => vertex2 switch
+                {
+                    1 => 2,
+                    2 => 1,
+                    _ => throw new Exception("Invalid.")
+                },
+
+                1 => vertex2 switch
+                {
+                    0 => 2,
+                    2 => 0,
+                    _ => throw new Exception("Invalid.")
+                },
+
+                2 => vertex2 switch
+                {
+                    0 => 1,
+                    1 => 0,
+                    _ => throw new Exception("Invalid.")
+                },
+                _ => throw new Exception("Invalid.")
+            };
+
+            return vertex3;
+        }
+
+        public static Vector2D CalcOuterNormal(double x0, double x1, double x2,
+                                               double y0, double y1, double y2)
+        {
+            var lengthEdge = Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+
+            var vector = new Vector2D(x2 - x0, y2 - y0);
+            var vectorOuterNormal = new Vector2D(y1 - y0, -(x1 - x0));
+            vectorOuterNormal /= lengthEdge;
+
+            if (vector * vectorOuterNormal > 0)
+                vectorOuterNormal = -vectorOuterNormal;
+
+            return vectorOuterNormal;
+        }
+
+        public static double SearchMaxNormFlowAtCenter(ISolution solution, IDictionary<string, IMaterial> materials)
+        {
+            double max = 0;
+
+            foreach (var element in solution.Mesh.Elements)
+            {
+                if (element.VertexNumber.Length == 2)
+                    continue;
+
+                var lambda = materials[element.Material].Lambda;
+
+                var point1 = solution.Mesh.Vertex[element.VertexNumber[0]];
+                var point2 = solution.Mesh.Vertex[element.VertexNumber[1]];
+                var point3 = solution.Mesh.Vertex[element.VertexNumber[2]];
+                var center = (point1 + point2 + point3) / 3.0;
+
+                var flowAtCenter = (lambda(center) * element.GetGradientAtPoint(solution.Mesh.Vertex, solution.SolutionVector, center)).Norm;
+
+                if (max < flowAtCenter)
+                    max = flowAtCenter;
+            }
+
+            return max;
+        }
+
+        public static double SearchMaxFlowOnEdge(ISolution solution, IDictionary<string, IMaterial> materials)
+        {
+            double max = 0;
+
+            var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
+
+            foreach (var element in solution.Mesh.Elements)
+            {
+                if (element.VertexNumber.Length == 2)
+                    continue;
+
+                var lambda = materials[element.Material].Lambda;
+
+                for (int edgei = 0; edgei < element.NumberOfEdges; edgei++)
+                {
+                    var edge = element.Edge(edgei);
+                    int vertex3 = ReturnNumberThirdVertex(edge.i, edge.j);
+
+                    edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+                    vertex3 = element.VertexNumber[vertex3];
+
+                    var x0 = solution.Mesh.Vertex[edge.i].X;
+                    var x1 = solution.Mesh.Vertex[edge.j].X;
+                    var x2 = solution.Mesh.Vertex[vertex3].X;
+                    var y0 = solution.Mesh.Vertex[edge.i].Y;
+                    var y1 = solution.Mesh.Vertex[edge.j].Y;
+                    var y2 = solution.Mesh.Vertex[vertex3].Y;
+
+                    var vectorOuterNormal = CalcOuterNormal(x0, x1, x2, y0, y1, y2);
+
+                    var flowAcrossEdge = Math.Abs(NumericalIntegration.NumericalValueIntegralOnEdge(quadratures,
+                        t =>
+                        {
+                            var x = x0 * (1 - t) + x1 * t;
+                            var y = y0 * (1 - t) + y1 * t;
+
+                            return lambda(new(x, y)) * vectorOuterNormal * element.GetGradientAtPoint(solution.Mesh.Vertex, solution.SolutionVector, new(x, y));
+                        }));
+
+                    if (max < flowAcrossEdge)
+                        max = flowAcrossEdge;
+                }
+            }
+
+            return max;
+        }
+
+        public static double SearchMaxProjectionFlowOnEdge(ISolution solution, IDictionary<string, IMaterial> materials)
+        {
+            double max = 0;
+
+            var quadratures = new QuadratureNodes<double>([.. NumericalIntegration.GaussQuadrature1DOrder3()], 3);
+
+            foreach (var element in solution.Mesh.Elements)
+            {
+                if (element.VertexNumber.Length == 2)
+                    continue;
+
+                var lambda = materials[element.Material].Lambda;
+
+                var point1 = solution.Mesh.Vertex[element.VertexNumber[0]];
+                var point2 = solution.Mesh.Vertex[element.VertexNumber[1]];
+                var point3 = solution.Mesh.Vertex[element.VertexNumber[2]];
+                var center = (point1 + point2 + point3) / 3.0;
+
+                var flowAtCenter = (lambda(center) * element.GetGradientAtPoint(solution.Mesh.Vertex, solution.SolutionVector, center));
+
+                for (int edgei = 0; edgei < element.NumberOfEdges; edgei++)
+                {
+                    var edge = element.Edge(edgei);
+                    int vertex3 = ReturnNumberThirdVertex(edge.i, edge.j);
+
+                    edge = (element.VertexNumber[edge.i], element.VertexNumber[edge.j]);
+                    vertex3 = element.VertexNumber[vertex3];
+
+                    var x0 = solution.Mesh.Vertex[edge.i].X;
+                    var x1 = solution.Mesh.Vertex[edge.j].X;
+                    var x2 = solution.Mesh.Vertex[vertex3].X;
+                    var y0 = solution.Mesh.Vertex[edge.i].Y;
+                    var y1 = solution.Mesh.Vertex[edge.j].Y;
+                    var y2 = solution.Mesh.Vertex[vertex3].Y;
+
+                    var vectorOuterNormal = CalcOuterNormal(x0, x1, x2, y0, y1, y2);
+
+                    var flowAcrossEdge = Math.Abs(vectorOuterNormal * flowAtCenter);
+
+                    if (max < flowAcrossEdge)
+                        max = flowAcrossEdge;
+                }
+            }
+
+            return max;
         }
     }
 }

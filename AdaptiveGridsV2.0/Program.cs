@@ -71,6 +71,7 @@ FileManager manager = new FileManager();
 //IAdaptiveFiniteElementMesh mesh = manager.ReadMeshFromTelma("Input\\квадруполь_грубая.txt", type);
 //IAdaptiveFiniteElementMesh mesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая.txt", type);
 IAdaptiveFiniteElementMesh startMesh = manager.ReadMeshFromTelma("Input\\квадруполь_грубая.txt", type);
+//IAdaptiveFiniteElementMesh startMesh = manager.ReadMyMeshFormat("Input\\adaptedMesh.txt", type);
 IAdaptiveFiniteElementMesh quadMesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая_учетверенная.txt", type);
 //IAdaptiveFiniteElementMesh quadMesh = manager.ReadMyMeshFormat("Input\\квадруполь_грубая_удвоенная.txt", type);
 
@@ -208,7 +209,7 @@ manager.CopyDirectory("Output", "..\\..\\..\\Output");*/
 
 // *********************************************************************
 // ADAPTATION
-
+/*
 EllipticalProblem problem = new(materials, startMesh);
 
 problem.Prepare();
@@ -343,10 +344,428 @@ using (StreamWriter log = new(Path.Combine(output, nameDiffFlow, "log.txt")))
     log.WriteLine($"Shift adapted solution from start solution - {(shiftAdaptedFromStartSolution / N):e5}");
 }
 
-fileManager.CopyDirectory(output, "..\\..\\..\\Output");
+fileManager.CopyDirectory(output, "..\\..\\..\\Output");*/
 
 // END ADAPTATION
 // *********************************************************************
+
+// *********************************************************************
+// CYCLE ADAPTATION
+
+/*EllipticalProblem startProblem = new(materials, startMesh);
+
+startProblem.Prepare();
+Solution startSolution = new Solution(startMesh, new TimeMesh([0.0]));
+startProblem.Solve(startSolution);
+
+EllipticalProblem quadProblem = new(materials, quadMesh);
+
+quadProblem.Prepare();
+Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
+quadProblem.Solve(goalSolution);
+
+string output = Path.Combine("Output", "CycleAdaptationThreeIter35PercFromMaxWithConstraintAndSourceThirdCriteria");
+Directory.CreateDirectory(output);
+
+int countAdaptation = 4;
+
+var meshBefore = startMesh;
+EllipticalProblem problemBefore = new(materials, meshBefore);
+problemBefore.Prepare();
+Solution solutionBefore = new(meshBefore, new TimeMesh([0.0]));
+problemBefore.Solve(solutionBefore);
+
+Research research = new(0.0, 0.4, 20,
+                        0.0, 0.4, 20,
+                        0.0, 0.05, 10,
+                        0.0, Math.PI / 2.0, 10,
+                        goalSolution);
+
+double[] r = research.SplitSegment(0.0, 0.05, 10);
+double[] phi = research.SplitSegment(0.0, Math.PI / 2.0, 10);
+int N = r.Length * phi.Length;
+
+for (int i = 0; i < countAdaptation; i++)
+{
+    string directory = Path.Combine(output, "Adaptation" + i.ToString());
+    Directory.CreateDirectory(directory);
+
+    StreamWriter log = new(Path.Combine(directory, "log.txt"));
+
+    var fileManager = new FileManager(Path.Combine(directory, "verticesBeforeAddaptation.txt"),
+                                      Path.Combine(directory, "trianglesBeforeAddaptation.txt"),
+                                      Path.Combine(directory, "valuesBeforeAddaptation.txt"));
+
+    fileManager.LoadToFile(meshBefore.Vertex, meshBefore.Elements, solutionBefore.SolutionVector.ToArray());
+
+    var xFlowValues = new double[meshBefore.Vertex.Length];
+    var yFlowValues = new double[meshBefore.Vertex.Length];
+
+    for (int k = 0; k < meshBefore.Vertex.Length; k++)
+    {
+        var flow = solutionBefore.Flow(materials, meshBefore.Vertex[k]);
+
+        xFlowValues[k] = flow.X;
+        yFlowValues[k] = flow.Y;
+    }
+
+    fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesBeforeAdaptation.txt"));
+    fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesBeforeAdaptation.txt"));
+
+    string strLog = $"""
+
+    Start mesh {i}:
+    dofs - {meshBefore.NumberOfDofs}
+    elements - {meshBefore.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+    log.WriteLine(strLog);
+    Console.WriteLine(strLog);
+
+    var meshAfter = meshBefore.DoAdaptation(solutionBefore, materials, directory);
+
+    EllipticalProblem problemAfter = new(materials, meshAfter);
+    problemAfter.Prepare();
+    Solution solutionAfter = new(meshAfter, new TimeMesh([0.0]));
+    problemAfter.Solve(solutionAfter);
+
+    fileManager = new FileManager(Path.Combine(directory, "verticesAfterAddaptation.txt"),
+                                  Path.Combine(directory, "trianglesAfterAddaptation.txt"),
+                                  Path.Combine(directory, "valuesAfterAddaptation.txt"));
+
+    fileManager.LoadToFile(meshAfter.Vertex, meshAfter.Elements, solutionAfter.SolutionVector.ToArray());
+
+    xFlowValues = new double[meshAfter.Vertex.Length];
+    yFlowValues = new double[meshAfter.Vertex.Length];
+
+    for (int k = 0; k < meshAfter.Vertex.Length; k++)
+    {
+        var flow = solutionAfter.Flow(materials, meshAfter.Vertex[k]);
+
+        xFlowValues[k] = flow.X;
+        yFlowValues[k] = flow.Y;
+    }
+
+    fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesAfterAdaptation.txt"));
+    fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesAfterAdaptation.txt"));
+
+    strLog = $"""
+    Adapted mesh {i}:
+    dofs - {meshAfter.NumberOfDofs}
+    elements - {meshAfter.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+    log.WriteLine(strLog);
+    Console.WriteLine(strLog);
+
+    fileManager.LoadMyMeshFormat(Path.Combine(directory, "adaptedMesh.txt"), meshAfter);
+
+    double shiftAdaptedFromGoalSolution = 0.0;
+    double shiftAdaptedFromStartSolution = 0.0;
+    double shiftStartFromGoalSolution = 0.0;
+
+    for (int s = 0; s < phi.Length; s++)
+    {
+        double cosPhi = Math.Cos(phi[s]);
+        double sinPhi = Math.Sin(phi[s]);
+
+        for (int p = 0; p < r.Length; p++)
+        {
+            Vector2D point = new(r[p] * cosPhi, r[p] * sinPhi);
+
+            double valueStartMesh = solutionBefore.Value(point);
+            double valueAdaptedMesh = solutionAfter.Value(point);
+            double valueGoalSolution = goalSolution.Value(point);
+
+            shiftAdaptedFromGoalSolution += (valueAdaptedMesh - valueGoalSolution) * (valueAdaptedMesh - valueGoalSolution);
+            shiftAdaptedFromStartSolution += (valueAdaptedMesh - valueStartMesh) * (valueAdaptedMesh - valueStartMesh);
+            shiftStartFromGoalSolution += (valueGoalSolution - valueStartMesh) * (valueGoalSolution - valueStartMesh);
+        }
+    }
+
+    strLog = $"""
+        Shift start solution from goal solution - {shiftStartFromGoalSolution}
+        Shift adapted solution from goal solution - {shiftAdaptedFromGoalSolution}
+        Shift adapted solution from start solution - {shiftAdaptedFromStartSolution}
+
+        """;
+
+    log.WriteLine(strLog);
+
+    log.Close();
+
+    meshBefore = meshAfter;
+    solutionBefore = solutionAfter;
+}
+
+manager.CopyDirectory("Output", "..\\..\\..\\Output");*/
+
+// END CYCLE ADAPTATION
+// *********************************************************************
+
+// ******************************************************************************************************************************************************
+// NEW CYCLE ADAPTATION
+
+EllipticalProblem startProblem = new(materials, startMesh);
+
+startProblem.Prepare();
+Solution startSolution = new Solution(startMesh, new TimeMesh([0.0]));
+startProblem.Solve(startSolution);
+
+EllipticalProblem quadProblem = new(materials, quadMesh);
+
+quadProblem.Prepare();
+Solution goalSolution = new(quadMesh, new TimeMesh([0.0]));
+quadProblem.Solve(goalSolution);
+
+string output = Path.Combine("Output", "Test");
+Directory.CreateDirectory(output);
+
+int countAdaptation = 4;
+
+var meshBefore = startMesh;
+EllipticalProblem problemBefore = new(materials, meshBefore);
+problemBefore.Prepare();
+Solution solutionBefore = new(meshBefore, new TimeMesh([0.0]));
+problemBefore.Solve(solutionBefore);
+
+Research research = new(0.0, 0.4, 20,
+                        0.0, 0.4, 20,
+                        0.0, 0.05, 10,
+                        0.0, Math.PI / 2.0, 10,
+                        goalSolution);
+
+double[] r = research.SplitSegment(0.0, 0.05, 10);
+double[] phi = research.SplitSegment(0.0, Math.PI / 2.0, 10);
+int N = r.Length * phi.Length;
+
+string directory = Path.Combine(output, "Adaptation0");
+Directory.CreateDirectory(directory);
+
+StreamWriter log = new(Path.Combine(directory, "log.txt"));
+
+var fileManager = new FileManager(Path.Combine(directory, "verticesBeforeAddaptation.txt"),
+                                  Path.Combine(directory, "trianglesBeforeAddaptation.txt"),
+                                  Path.Combine(directory, "valuesBeforeAddaptation.txt"));
+
+fileManager.LoadToFile(meshBefore.Vertex, meshBefore.Elements, solutionBefore.SolutionVector.ToArray());
+
+var xFlowValues = new double[meshBefore.Vertex.Length];
+var yFlowValues = new double[meshBefore.Vertex.Length];
+
+for (int k = 0; k < meshBefore.Vertex.Length; k++)
+{
+    var flow = solutionBefore.Flow(materials, meshBefore.Vertex[k]);
+
+    xFlowValues[k] = flow.X;
+    yFlowValues[k] = flow.Y;
+}
+
+fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesBeforeAdaptation.txt"));
+fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesBeforeAdaptation.txt"));
+
+string strLog = $"""
+
+    Start mesh 0:
+    dofs - {meshBefore.NumberOfDofs}
+    elements - {meshBefore.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+log.WriteLine(strLog);
+Console.WriteLine(strLog);
+
+var meshAfter = meshBefore.DoAdaptation(solutionBefore, materials, directory);
+
+EllipticalProblem problemAfter = new(materials, meshAfter);
+problemAfter.Prepare();
+Solution solutionAfter = new(meshAfter, new TimeMesh([0.0]));
+problemAfter.Solve(solutionAfter);
+
+fileManager = new FileManager(Path.Combine(directory, "verticesAfterAddaptation.txt"),
+                              Path.Combine(directory, "trianglesAfterAddaptation.txt"),
+                              Path.Combine(directory, "valuesAfterAddaptation.txt"));
+
+fileManager.LoadToFile(meshAfter.Vertex, meshAfter.Elements, solutionAfter.SolutionVector.ToArray());
+
+xFlowValues = new double[meshAfter.Vertex.Length];
+yFlowValues = new double[meshAfter.Vertex.Length];
+
+for (int k = 0; k < meshAfter.Vertex.Length; k++)
+{
+    var flow = solutionAfter.Flow(materials, meshAfter.Vertex[k]);
+
+    xFlowValues[k] = flow.X;
+    yFlowValues[k] = flow.Y;
+}
+
+fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesAfterAdaptation.txt"));
+fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesAfterAdaptation.txt"));
+
+strLog = $"""
+    Adapted mesh 0:
+    dofs - {meshAfter.NumberOfDofs}
+    elements - {meshAfter.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+log.WriteLine(strLog);
+Console.WriteLine(strLog);
+
+fileManager.LoadMyMeshFormat(Path.Combine(directory, "adaptedMesh.txt"), meshAfter);
+
+double shiftAdaptedFromGoalSolution = 0.0;
+double shiftAdaptedFromStartSolution = 0.0;
+double shiftStartFromGoalSolution = 0.0;
+
+for (int s = 0; s < phi.Length; s++)
+{
+    double cosPhi = Math.Cos(phi[s]);
+    double sinPhi = Math.Sin(phi[s]);
+
+    for (int p = 0; p < r.Length; p++)
+    {
+        Vector2D point = new(r[p] * cosPhi, r[p] * sinPhi);
+
+        double valueStartMesh = solutionBefore.Value(point);
+        double valueAdaptedMesh = solutionAfter.Value(point);
+        double valueGoalSolution = goalSolution.Value(point);
+
+        shiftAdaptedFromGoalSolution += (valueAdaptedMesh - valueGoalSolution) * (valueAdaptedMesh - valueGoalSolution);
+        shiftAdaptedFromStartSolution += (valueAdaptedMesh - valueStartMesh) * (valueAdaptedMesh - valueStartMesh);
+        shiftStartFromGoalSolution += (valueGoalSolution - valueStartMesh) * (valueGoalSolution - valueStartMesh);
+    }
+}
+
+strLog = $"""
+        Shift start solution from goal solution - {shiftStartFromGoalSolution}
+        Shift adapted solution from goal solution - {shiftAdaptedFromGoalSolution}
+        Shift adapted solution from start solution - {shiftAdaptedFromStartSolution}
+
+        """;
+
+log.WriteLine(strLog);
+
+log.Close();
+
+for (int i = 1; i < countAdaptation; i++)
+{
+    directory = Path.Combine(output, "Adaptation" + i.ToString());
+    Directory.CreateDirectory(directory);
+
+    log = new(Path.Combine(directory, "log.txt"));
+
+    fileManager = new FileManager(Path.Combine(directory, "verticesBeforeAddaptation.txt"),
+                                  Path.Combine(directory, "trianglesBeforeAddaptation.txt"),
+                                  Path.Combine(directory, "valuesBeforeAddaptation.txt"));
+
+    fileManager.LoadToFile(meshAfter.Vertex, meshAfter.Elements, solutionAfter.SolutionVector.ToArray());
+
+    xFlowValues = new double[meshAfter.Vertex.Length];
+    yFlowValues = new double[meshAfter.Vertex.Length];
+
+    for (int k = 0; k < meshAfter.Vertex.Length; k++)
+    {
+        var flow = solutionAfter.Flow(materials, meshAfter.Vertex[k]);
+
+        xFlowValues[k] = flow.X;
+        yFlowValues[k] = flow.Y;
+    }
+
+    fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesBeforeAdaptation.txt"));
+    fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesBeforeAdaptation.txt"));
+
+    strLog = $"""
+
+    Start mesh {i}:
+    dofs - {meshAfter.NumberOfDofs}
+    elements - {meshAfter.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+    log.WriteLine(strLog);
+    Console.WriteLine(strLog);
+
+    meshAfter = meshBefore.DoAdaptation(solutionAfter, materials, directory);
+
+    problemAfter = new(materials, meshAfter);
+    problemAfter.Prepare();
+    solutionAfter = new(meshAfter, new TimeMesh([0.0]));
+    problemAfter.Solve(solutionAfter);
+
+    fileManager = new FileManager(Path.Combine(directory, "verticesAfterAddaptation.txt"),
+                                  Path.Combine(directory, "trianglesAfterAddaptation.txt"),
+                                  Path.Combine(directory, "valuesAfterAddaptation.txt"));
+
+    fileManager.LoadToFile(meshAfter.Vertex, meshAfter.Elements, solutionAfter.SolutionVector.ToArray());
+
+    xFlowValues = new double[meshAfter.Vertex.Length];
+    yFlowValues = new double[meshAfter.Vertex.Length];
+
+    for (int k = 0; k < meshAfter.Vertex.Length; k++)
+    {
+        var flow = solutionAfter.Flow(materials, meshAfter.Vertex[k]);
+
+        xFlowValues[k] = flow.X;
+        yFlowValues[k] = flow.Y;
+    }
+
+    fileManager.LoadValuesToFile(xFlowValues, Path.Combine(directory, "dxValuesAfterAdaptation.txt"));
+    fileManager.LoadValuesToFile(yFlowValues, Path.Combine(directory, "dyValuesAfterAdaptation.txt"));
+
+    strLog = $"""
+    Adapted mesh {i}:
+    dofs - {meshAfter.NumberOfDofs}
+    elements - {meshAfter.Elements.Where(x => x.VertexNumber.Length != 2).Count()}
+
+    """;
+
+    log.WriteLine(strLog);
+    Console.WriteLine(strLog);
+
+    fileManager.LoadMyMeshFormat(Path.Combine(directory, "adaptedMesh.txt"), meshAfter);
+
+    shiftAdaptedFromGoalSolution = 0.0;
+    shiftAdaptedFromStartSolution = 0.0;
+    shiftStartFromGoalSolution = 0.0;
+
+    for (int s = 0; s < phi.Length; s++)
+    {
+        double cosPhi = Math.Cos(phi[s]);
+        double sinPhi = Math.Sin(phi[s]);
+
+        for (int p = 0; p < r.Length; p++)
+        {
+            Vector2D point = new(r[p] * cosPhi, r[p] * sinPhi);
+
+            double valueStartMesh = solutionBefore.Value(point);
+            double valueAdaptedMesh = solutionAfter.Value(point);
+            double valueGoalSolution = goalSolution.Value(point);
+
+            shiftAdaptedFromGoalSolution += (valueAdaptedMesh - valueGoalSolution) * (valueAdaptedMesh - valueGoalSolution);
+            shiftAdaptedFromStartSolution += (valueAdaptedMesh - valueStartMesh) * (valueAdaptedMesh - valueStartMesh);
+            shiftStartFromGoalSolution += (valueGoalSolution - valueStartMesh) * (valueGoalSolution - valueStartMesh);
+        }
+    }
+
+    strLog = $"""
+        Shift start solution from goal solution - {shiftStartFromGoalSolution}
+        Shift adapted solution from goal solution - {shiftAdaptedFromGoalSolution}
+        Shift adapted solution from start solution - {shiftAdaptedFromStartSolution}
+
+        """;
+
+    log.WriteLine(strLog);
+
+    log.Close();
+}
+
+manager.CopyDirectory("Output", "..\\..\\..\\Output");
+
+// END NEW CYCLE ADAPTATION
+// ******************************************************************************************************************************************************
 
 /*
 string flag = "yes";
@@ -449,13 +868,14 @@ fileManager.CopyDirectory(output, "..\\..\\..\\Output");
 Console.WriteLine("Copy finished.");*/
 
 // TODO:
-// 1. Вывести невязку решения слау. COMPLETED
-// 2. вывести разницу весов в каждом узле.
-// 3. На удвоенной, вместо учетверенной.
+// 1. делить на максимум нормы с ограничением, если меньше 10% от максимума, то не делить.
+// 2. Возможно поможет добавка к весу значения правой части в середине ребра. Сначала попробовать без ограничения, потом после.
 
-// TODO: 
-// 1. Вывести скачки для критериев, которые надо напридумывать :)))
-// Взять решения в центрах и относительно среднего, снизу порог поставить, вдруг оно к нулю близко
+// TODO:
+// Идейно: дробить начальную, а считать скачки по новым сеткам. По оптимизации пока не париться.
 
+// TODO:
+// Рефакторинг: идея создать класс адаптатора (мб и дискретизатора), экземпляр которого будет у сетки, по аналогии с решателями слау.
+// Тогда по сути этот большой статический класс можно будет или вообще убрать, или большую часть вынести в вышеупомяннутые классы.
 
 return 0;

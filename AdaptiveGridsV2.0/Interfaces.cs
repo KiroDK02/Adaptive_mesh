@@ -59,7 +59,7 @@ namespace FEM
     {
         enum TypeRelativeDifference { Relative, Absolute }
         TypeRelativeDifference TypeDifference { get; }
-        IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials);
+        IAdaptiveFiniteElementMesh DoAdaptation(ISolution solution, IDictionary<string, IMaterial> materials, string output = "");
         public IAdaptiveFiniteElementMesh DoubleInsideRectangle(double x0, double x1, double y0, double y1);
     }
 
@@ -98,7 +98,7 @@ namespace FEM
         IAdaptiveFiniteElementMesh Mesh { get; }
         ITimeMesh TimeMesh { get; }
         ReadOnlySpan<double> SolutionVector { get; set; }
-        IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges);
+        IDictionary<(int i, int j), double> CalcDifferenceOfFlow(IDictionary<string, IMaterial> materials, IDictionary<(int i, int j), int> numberOccurrencesOfEdges, string output = "");
         void AddSolutionVector(double t, double[] solution);
         double Value(Vector2D point);
         Vector2D Gradient(Vector2D point);
